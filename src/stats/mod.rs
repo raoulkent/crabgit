@@ -2,6 +2,7 @@ use clap::ValueEnum;
 use serde::Serialize;
 
 pub mod activity;
+pub mod churn;
 
 #[derive(Copy, Clone, Debug, Serialize, ValueEnum)]
 pub enum Bucket {
@@ -17,10 +18,17 @@ pub enum OutputFormat {
     Chart,
 }
 
+#[derive(Copy, Clone, Debug, ValueEnum)]
+pub enum StatsMetric {
+    Activity,
+    Churn,
+}
+
 #[derive(Debug, Serialize, Clone)]
 pub struct StatsContext {
     pub repo_path: String,
     pub since: Option<String>,
     pub until: Option<String>,
     pub bucket: Bucket,
+    pub no_merges: bool,
 }
