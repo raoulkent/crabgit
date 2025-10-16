@@ -1,8 +1,26 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use crossterm::{
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    execute,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+};
 use dialoguer::{Select, theme::ColorfulTheme};
 use git2::Repository;
-use std::path::PathBuf;
+use ratatui::{
+    Frame, Terminal,
+    backend::CrosstermBackend,
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style},
+    text::Line,
+    widgets::{Block, Borders, List, ListItem, Paragraph, Tabs},
+};
+use std::{
+    collections::HashMap,
+    io::{Stdout, stdout},
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 #[derive(Parser)]
 #[command(name = "gitcrab")]
@@ -32,6 +50,12 @@ enum Commands {
         count: usize,
     },
 
+    /// Show repository statistics for data-driven insights
+    Stats,
+
+    /// Launch TUI (Terminal User Interface) mode
+    Tui,
+
     /// Interactive mode for exploring the repository
     Interactive,
 }
@@ -47,6 +71,8 @@ fn main() -> Result<()> {
         Some(Commands::Status) => show_status(&repo)?,
         Some(Commands::Branches) => list_branches(&repo)?,
         Some(Commands::Log { count }) => show_log(&repo, count)?,
+        Some(Commands::Stats) => show_stats(&repo)?,
+        Some(Commands::Tui) => run_tui(&repo)?,
         Some(Commands::Interactive) => interactive_mode(&repo)?,
         None => {
             // Default behavior: show status
@@ -136,6 +162,278 @@ fn show_log(repo: &Repository, count: usize) -> Result<()> {
     Ok(())
 }
 
+fn show_stats(repo: &Repository) -> Result<()> {
+    println!("🦀 Repository Statistics");
+    println!("========================\n");
+
+    // Count total commits
+    let mut revwalk = repo.revwalk()?;
+    revwalk.push_head()?;
+    let total_commits = revwalk.count();
+    println!("Total commits: {}", total_commits);
+
+    // Count branches
+    let branches = repo.branches(None)?;
+    let mut local_branches = 0;
+    let mut remote_branches = 0;
+
+    for branch in branches {
+        let (_, branch_type) = branch?;
+        match branch_type {
+            git2::BranchType::Local => local_branches += 1,
+            git2::BranchType::Remote => remote_branches += 1,
+        }
+    }
+
+    println!("Local branches: {}", local_branches);
+    println!("Remote branches: {}", remote_branches);
+
+    // Analyze commit authors
+    let mut author_stats: HashMap<String, usize> = HashMap::new();
+    let mut revwalk = repo.revwalk()?;
+    revwalk.push_head()?;
+    revwalk.set_sorting(git2::Sort::TIME)?;
+
+    for oid in revwalk {
+        let oid = oid?;
+        let commit = repo.find_commit(oid)?;
+        let author_name = commit.author().name().unwrap_or("Unknown").to_string();
+        *author_stats.entry(author_name).or_insert(0) += 1;
+    }
+
+    println!("\nTop contributors:");
+    let mut sorted_authors: Vec<_> = author_stats.iter().collect();
+    sorted_authors.sort_by(|a, b| b.1.cmp(a.1));
+
+    for (i, (author, count)) in sorted_authors.iter().take(5).enumerate() {
+        println!("{}. {} ({} commits)", i + 1, author, count);
+    }
+
+    // Calculate repository age
+    let mut revwalk = repo.revwalk()?;
+    revwalk.push_head()?;
+    let _ = revwalk.set_sorting(git2::Sort::TIME | git2::Sort::REVERSE);
+
+    if let Some(first_oid) = revwalk.next() {
+        let first_commit = repo.find_commit(first_oid?)?;
+        let first_time = first_commit.time();
+        let age_seconds =
+            SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64 - first_time.seconds();
+        let age_days = age_seconds / (24 * 60 * 60);
+        println!("\nRepository age: {} days", age_days);
+    }
+
+    Ok(())
+}
+
+fn run_tui(repo: &Repository) -> Result<()> {
+    // Setup terminal
+    enable_raw_mode()?;
+    let mut stdout = stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+
+    let result = run_tui_app(&mut terminal, repo);
+
+    // Restore terminal
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
+    terminal.show_cursor()?;
+
+    result
+}
+
+fn run_tui_app(terminal: &mut Terminal<CrosstermBackend<Stdout>>, repo: &Repository) -> Result<()> {
+    let mut selected_tab = 0;
+    let tabs = ["Status", "Branches", "Stats", "Log"];
+
+    loop {
+        terminal.draw(|f| {
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .margin(1)
+                .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
+                .split(f.area());
+
+            let tab_titles: Vec<Line> = tabs
+                .iter()
+                .map(|t| {
+                    let content = format!(" {} ", t);
+                    Line::from(content)
+                })
+                .collect();
+
+            let tabs_widget = Tabs::new(tab_titles)
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title("🦀 GitCrab TUI"),
+                )
+                .style(Style::default().fg(Color::White))
+                .highlight_style(
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                )
+                .select(selected_tab);
+
+            f.render_widget(tabs_widget, chunks[0]);
+
+            match selected_tab {
+                0 => render_status_tab(f, chunks[1], repo),
+                1 => render_branches_tab(f, chunks[1], repo),
+                2 => render_stats_tab(f, chunks[1], repo),
+                3 => render_log_tab(f, chunks[1], repo),
+                _ => {}
+            }
+        })?;
+
+        if let Event::Key(key) = event::read()? {
+            match key.code {
+                KeyCode::Char('q') => break,
+                KeyCode::Right => {
+                    selected_tab = (selected_tab + 1) % tabs.len();
+                }
+                KeyCode::Left => {
+                    selected_tab = if selected_tab > 0 {
+                        selected_tab - 1
+                    } else {
+                        tabs.len() - 1
+                    };
+                }
+                _ => {}
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn render_status_tab(f: &mut Frame, area: Rect, repo: &Repository) {
+    let mut content = vec![];
+
+    if let Some(path) = repo.path().parent() {
+        content.push(format!("Path: {}", path.display()));
+    }
+
+    if let Ok(head) = repo.head() {
+        if let Some(name) = head.shorthand() {
+            content.push(format!("Current branch: {}", name));
+        }
+
+        if let Ok(commit) = head.peel_to_commit() {
+            content.push(format!("HEAD commit: {}", commit.id()));
+            if let Some(message) = commit.message() {
+                content.push(format!("Message: {}", message.lines().next().unwrap_or("")));
+            }
+        }
+    }
+
+    content.push(format!("Is bare: {}", repo.is_bare()));
+
+    let text = content.join("\n");
+    let paragraph = Paragraph::new(text).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title("Repository Status"),
+    );
+    f.render_widget(paragraph, area);
+}
+
+fn render_branches_tab(f: &mut Frame, area: Rect, repo: &Repository) {
+    let mut items = vec![];
+
+    if let Ok(branches) = repo.branches(None) {
+        for (branch, branch_type) in branches.flatten() {
+            if let Ok(Some(name)) = branch.name() {
+                let type_str = match branch_type {
+                    git2::BranchType::Local => "local",
+                    git2::BranchType::Remote => "remote",
+                };
+                let marker = if branch.is_head() { "*" } else { " " };
+                let item_text = format!("{} {} ({})", marker, name, type_str);
+                items.push(ListItem::new(item_text));
+            }
+        }
+    }
+
+    let list = List::new(items).block(Block::default().borders(Borders::ALL).title("Branches"));
+    f.render_widget(list, area);
+}
+
+fn render_stats_tab(f: &mut Frame, area: Rect, repo: &Repository) {
+    let mut content = vec![];
+
+    // Count commits
+    if let Ok(mut revwalk) = repo.revwalk()
+        && revwalk.push_head().is_ok()
+    {
+        let total_commits = revwalk.count();
+        content.push(format!("Total commits: {}", total_commits));
+    }
+
+    // Count branches
+    if let Ok(branches) = repo.branches(None) {
+        let mut local = 0;
+        let mut remote = 0;
+        for (_, branch_type) in branches.flatten() {
+            match branch_type {
+                git2::BranchType::Local => local += 1,
+                git2::BranchType::Remote => remote += 1,
+            }
+        }
+        content.push(format!("Local branches: {}", local));
+        content.push(format!("Remote branches: {}", remote));
+    }
+
+    let text = content.join("\n");
+    let paragraph = Paragraph::new(text).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title("Repository Statistics"),
+    );
+    f.render_widget(paragraph, area);
+}
+
+fn render_log_tab(f: &mut Frame, area: Rect, repo: &Repository) {
+    let mut items = vec![];
+
+    if let Ok(mut revwalk) = repo.revwalk()
+        && revwalk.push_head().is_ok()
+        && revwalk.set_sorting(git2::Sort::TIME).is_ok()
+    {
+        for (i, oid) in revwalk.enumerate() {
+            if i >= 10 {
+                break;
+            }
+            if let Ok(oid) = oid
+                && let Ok(commit) = repo.find_commit(oid)
+            {
+                let short_id = format!("{:.7}", commit.id());
+                let message = commit
+                    .message()
+                    .and_then(|m| m.lines().next())
+                    .unwrap_or("No message")
+                    .to_string();
+                let item_text = format!("{} {}", short_id, message);
+                items.push(ListItem::new(item_text));
+            }
+        }
+    }
+
+    let list = List::new(items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title("Recent Commits"),
+    );
+    f.render_widget(list, area);
+}
+
 fn interactive_mode(repo: &Repository) -> Result<()> {
     println!("🦀 Interactive Mode");
     println!("===================\n");
@@ -145,6 +443,8 @@ fn interactive_mode(repo: &Repository) -> Result<()> {
             "Show repository status",
             "List branches",
             "View recent commits",
+            "Show repository statistics",
+            "Launch TUI mode",
             "Exit",
         ];
 
@@ -164,7 +464,9 @@ fn interactive_mode(repo: &Repository) -> Result<()> {
                 let count = 10; // Default, could be made interactive too
                 show_log(repo, count)?;
             }
-            3 => {
+            3 => show_stats(repo)?,
+            4 => run_tui(repo)?,
+            5 => {
                 println!("Goodbye! 🦀");
                 break;
             }
