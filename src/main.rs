@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -22,6 +22,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+mod stats;
+mod output;
 #[derive(Parser)]
 #[command(name = "gitcrab")]
 #[command(about = "CLI tool for inspecting Git repos. Blazingly fast 🦀", long_about = None)]
@@ -51,13 +53,41 @@ enum Commands {
     },
 
     /// Show repository statistics for data-driven insights
-    Stats,
+    Stats {
+        #[command(subcommand)]
+        command: Option<StatsCommand>,
+    },
 
     /// Launch TUI (Terminal User Interface) mode
     Tui,
 
     /// Interactive mode for exploring the repository
     Interactive,
+}
+
+#[derive(Subcommand)]
+enum StatsCommand {
+    /// Repository-level statistics (placeholder)
+    Repo(RepoArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+struct RepoArgs {
+    /// Start of time window (e.g., "90d", "2024-01-01")
+    #[arg(long)]
+    since: Option<String>,
+
+    /// End of time window (e.g., "2024-12-31")
+    #[arg(long)]
+    until: Option<String>,
+
+    /// Aggregation bucket
+    #[arg(long, value_enum, default_value = "week")]
+    bucket: stats::Bucket,
+
+    /// Output format
+    #[arg(long, value_enum, default_value = "table")]
+    format: stats::OutputFormat,
 }
 
 fn main() -> Result<()> {
@@ -71,7 +101,25 @@ fn main() -> Result<()> {
         Some(Commands::Status) => show_status(&repo)?,
         Some(Commands::Branches) => list_branches(&repo)?,
         Some(Commands::Log { count }) => show_log(&repo, count)?,
-        Some(Commands::Stats) => show_stats(&repo)?,
+        Some(Commands::Stats { command }) => match command {
+            Some(StatsCommand::Repo(args)) => {
+                let repo_display = if let Some(p) = repo.workdir() {
+                    p.display().to_string()
+                } else if let Some(parent) = repo.path().parent() {
+                    parent.display().to_string()
+                } else {
+                    String::from(".")
+                };
+                let ctx = stats::StatsContext {
+                    repo_path: repo_display,
+                    since: args.since.clone(),
+                    until: args.until.clone(),
+                    bucket: args.bucket,
+                };
+                output::render_repo_placeholder(&ctx, args.format)?;
+            }
+            None => show_stats(&repo)?,
+        },
         Some(Commands::Tui) => run_tui(&repo)?,
         Some(Commands::Interactive) => interactive_mode(&repo)?,
         None => {
