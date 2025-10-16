@@ -7,6 +7,7 @@ use std::path::PathBuf;
 #[derive(Parser)]
 #[command(name = "gitcrab")]
 #[command(about = "CLI tool for inspecting Git repos. Blazingly fast 🦀", long_about = None)]
+#[command(version)]
 struct Cli {
     /// Path to the Git repository (defaults to current directory)
     #[arg(short, long, value_name = "PATH")]
