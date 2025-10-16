@@ -59,7 +59,7 @@ fn bucket_start(ts: i64, bucket: Bucket) -> i64 {
     }
 }
 
-fn month_floor(ts: i64) -> i64 {
+pub fn month_floor(ts: i64) -> i64 {
     let dt = OffsetDateTime::from_unix_timestamp(ts).unwrap_or(OffsetDateTime::UNIX_EPOCH);
     let date = dt.date();
     let y = date.year();
@@ -69,7 +69,7 @@ fn month_floor(ts: i64) -> i64 {
     pdt.unix_timestamp()
 }
 
-fn parse_instant(s: Option<&str>) -> Option<i64> {
+pub fn parse_instant(s: Option<&str>) -> Option<i64> {
     let s = s?;
     let now = OffsetDateTime::now_utc().unix_timestamp();
     if let Some(num) = s.strip_suffix('d')

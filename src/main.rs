@@ -85,6 +85,14 @@ struct RepoArgs {
     #[arg(long, value_enum, default_value = "week")]
     bucket: stats::Bucket,
 
+    /// Metric to compute
+    #[arg(long, value_enum, default_value = "activity")]
+    metric: stats::StatsMetric,
+
+    /// Exclude merge commits from metrics that traverse history
+    #[arg(long, default_value_t = false)]
+    no_merges: bool,
+
     /// Output format
     #[arg(long, value_enum, default_value = "table")]
     format: stats::OutputFormat,
@@ -115,8 +123,9 @@ fn main() -> Result<()> {
                     since: args.since.clone(),
                     until: args.until.clone(),
                     bucket: args.bucket,
+                    no_merges: args.no_merges,
                 };
-                output::render_repo_placeholder(&repo, &ctx, args.format)?;
+                output::render_repo(&repo, args.metric, &ctx, args.format)?;
             }
             None => show_stats(&repo)?,
         },
