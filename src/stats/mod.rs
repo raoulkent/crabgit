@@ -3,6 +3,8 @@ use serde::Serialize;
 
 pub mod activity;
 pub mod churn;
+pub mod authors;
+pub mod calendar;
 
 #[derive(Copy, Clone, Debug, Serialize, ValueEnum)]
 pub enum Bucket {
@@ -21,6 +23,12 @@ pub enum OutputFormat {
 #[derive(Copy, Clone, Debug, ValueEnum)]
 pub enum StatsMetric {
     Activity,
+    Churn,
+}
+
+#[derive(Copy, Clone, Debug, ValueEnum, Serialize)]
+pub enum AuthorMetric {
+    Commits,
     Churn,
 }
 

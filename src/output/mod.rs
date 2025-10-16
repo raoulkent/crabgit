@@ -2,7 +2,7 @@ pub mod json;
 pub mod table;
 pub mod ascii;
 
-use crate::stats::{OutputFormat, StatsContext, StatsMetric};
+use crate::stats::{AuthorMetric, OutputFormat, StatsContext, StatsMetric};
 use anyhow::Result;
 use git2::Repository;
 
@@ -50,5 +50,49 @@ pub fn render_repo(repo: &Repository, metric: StatsMetric, ctx: &StatsContext, f
             let series = crate::stats::churn::compute_churn(repo, ctx)?;
             ascii::print_repo_churn(ctx, &series)
         }
+    }
+}
+
+#[derive(serde::Serialize)]
+struct AuthorsOutput {
+    context: StatsContext,
+    metric: AuthorMetric,
+    top: usize,
+    authors: Vec<crate::stats::authors::AuthorStats>,
+}
+
+pub fn render_authors(repo: &Repository, ctx: &StatsContext, metric: AuthorMetric, top: usize, fmt: OutputFormat) -> Result<()> {
+    let mut authors = crate::stats::authors::compute_authors(repo, ctx)?;
+    match metric {
+        AuthorMetric::Commits => authors.sort_by(|a,b| b.commits.cmp(&a.commits)),
+        AuthorMetric::Churn => authors.sort_by(|a,b| (b.adds+b.dels).cmp(&(a.adds+a.dels))),
+    }
+    let authors = if authors.len() > top { authors.into_iter().take(top).collect() } else { authors };
+    match fmt {
+        OutputFormat::Json => {
+            let out = AuthorsOutput { context: ctx.clone(), metric, top, authors };
+            json::print(&out)
+        }
+        OutputFormat::Table => table::print_authors_table(&authors, metric),
+        OutputFormat::Chart => ascii::print_authors_bars(&authors, metric),
+    }
+}
+
+#[derive(serde::Serialize)]
+struct CalendarOutput {
+    context: StatsContext,
+    kind: &'static str,
+    matrix: [[u64;24];7],
+}
+
+pub fn render_calendar(repo: &Repository, ctx: &StatsContext, fmt: OutputFormat) -> Result<()> {
+    let mat = crate::stats::calendar::compute_calendar(repo, ctx.since.as_deref(), ctx.until.as_deref())?;
+    match fmt {
+        OutputFormat::Json => {
+            let out = CalendarOutput { context: ctx.clone(), kind: "weekday_hour", matrix: mat.matrix };
+            json::print(&out)
+        }
+        OutputFormat::Table => table::print_calendar_table(&mat.matrix),
+        OutputFormat::Chart => ascii::print_calendar_heatmap(&mat.matrix),
     }
 }
