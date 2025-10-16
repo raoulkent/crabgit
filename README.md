@@ -1,14 +1,16 @@
 # gitcrab
 
-Cli tool for inspecting Git repos. Blazingly fast 🦀
+A CLI tool for data-driven Git repository analysis. Make informed decisions about your codebase through statistical insights and interactive exploration. Blazingly fast 🦀
 
 ## Features
 
-- 📊 **Repository Status**: View current branch, HEAD commit, and repository info
-- 🌿 **Branch Listing**: List all local and remote branches with current branch indicator
-- 📜 **Commit Log**: View recent commits with customizable count
-- 🎯 **Interactive Mode**: Explore repositories with an interactive menu
-- 🚀 **Fast & Efficient**: Built with Rust for blazing performance
+- 📊 **Repository Statistics**: Analyze commit patterns, contributor activity, and repository health metrics
+- 📈 **Contributor Insights**: Track changes by author, identify top contributors, and analyze collaboration patterns
+- 📁 **File & Directory Analysis**: Inspect change frequency and stability across different parts of your codebase
+- 🕰️ **Time-based Analytics**: Examine development trends over different time periods
+- 🖥️ **Interactive TUI**: Explore repository data through an intuitive terminal interface with tabbed navigation
+- 🎯 **Interactive Mode**: Navigate through repository statistics with menu-driven exploration
+- 🚀 **Fast & Efficient**: Built with Rust for blazing performance on large repositories
 
 ## Installation
 
@@ -22,28 +24,53 @@ The binary will be available at `target/release/gitcrab`.
 
 ## Usage
 
+### Core Analytics Commands
+
+```bash
+# Display comprehensive repository statistics
+gitcrab stats
+
+# Launch interactive TUI for detailed exploration
+gitcrab tui
+
+# Interactive menu-driven mode
+gitcrab interactive
+```
+
+### Basic Repository Information
+
 ```bash
 # Show repository status (default behavior)
 gitcrab
 
-# Show repository status explicitly
-gitcrab status
-
 # List all branches
 gitcrab branches
 
-# Show last 10 commits (default)
-gitcrab log
-
-# Show last N commits
-gitcrab log --count 5
-
-# Interactive mode
-gitcrab interactive
-
-# Inspect a different repository
-gitcrab --repo /path/to/repo status
+# Show recent commits
+gitcrab log --count 20
 ```
+
+### Analyzing Different Repositories
+
+```bash
+# Analyze a specific repository
+gitcrab --repo /path/to/repo stats
+
+# Launch TUI for a different repository
+gitcrab --repo /path/to/repo tui
+```
+
+## What GitCrab Reveals
+
+GitCrab helps you understand your repository through data-driven insights:
+
+- **Repository Health**: Total commits, branch count, repository age, and overall activity metrics
+- **Contributor Analysis**: Top contributors by commit count, collaboration patterns, and team dynamics
+- **Development Trends**: Commit frequency over time, peak development periods, and project evolution
+- **Code Stability**: Areas of high change frequency vs. stable components
+- **Team Insights**: Individual contributor patterns and code ownership analysis
+
+Use these insights to make informed decisions about code reviews, refactoring priorities, team responsibilities, and technical debt management.
 
 ### Help
 
@@ -80,9 +107,11 @@ cargo fmt
 ## Dependencies
 
 - `clap` - Command line argument parsing
-- `git2` - Git repository operations
+- `git2` - Git repository operations for data extraction
 - `anyhow` - Error handling
-- `dialoguer` - Interactive prompts
+- `dialoguer` - Interactive prompts and menus
+- `ratatui` - Terminal user interface framework
+- `crossterm` - Cross-platform terminal manipulation
 
 ## License
 
