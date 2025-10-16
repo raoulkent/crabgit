@@ -1,6 +1,8 @@
 use clap::ValueEnum;
 use serde::Serialize;
 
+pub mod activity;
+
 #[derive(Copy, Clone, Debug, Serialize, ValueEnum)]
 pub enum Bucket {
     Day,
@@ -15,7 +17,7 @@ pub enum OutputFormat {
     Chart,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct StatsContext {
     pub repo_path: String,
     pub since: Option<String>,

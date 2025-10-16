@@ -116,7 +116,7 @@ fn main() -> Result<()> {
                     until: args.until.clone(),
                     bucket: args.bucket,
                 };
-                output::render_repo_placeholder(&ctx, args.format)?;
+                output::render_repo_placeholder(&repo, &ctx, args.format)?;
             }
             None => show_stats(&repo)?,
         },
