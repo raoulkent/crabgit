@@ -67,8 +67,12 @@ enum Commands {
 
 #[derive(Subcommand)]
 enum StatsCommand {
-    /// Repository-level statistics (placeholder)
+    /// Repository-level statistics
     Repo(RepoArgs),
+    /// Per-author statistics (top N)
+    Authors(AuthorsArgs),
+    /// Calendar/weekday-hour activity heatmap
+    Calendar(CalendarArgs),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -95,6 +99,41 @@ struct RepoArgs {
 
     /// Output format
     #[arg(long, value_enum, default_value = "table")]
+    format: stats::OutputFormat,
+}
+
+#[derive(Args, Debug, Clone)]
+struct AuthorsArgs {
+    /// Start of time window
+    #[arg(long)]
+    since: Option<String>,
+    /// End of time window
+    #[arg(long)]
+    until: Option<String>,
+    /// Exclude merge commits
+    #[arg(long, default_value_t = false)]
+    no_merges: bool,
+    /// Top N authors to show
+    #[arg(long, default_value_t = 15)]
+    top: usize,
+    /// Metric to rank by
+    #[arg(long, value_enum, default_value = "commits")]
+    metric: stats::AuthorMetric,
+    /// Output format
+    #[arg(long, value_enum, default_value = "table")]
+    format: stats::OutputFormat,
+}
+
+#[derive(Args, Debug, Clone)]
+struct CalendarArgs {
+    /// Start of time window
+    #[arg(long)]
+    since: Option<String>,
+    /// End of time window
+    #[arg(long)]
+    until: Option<String>,
+    /// Output format
+    #[arg(long, value_enum, default_value = "chart")]
     format: stats::OutputFormat,
 }
 
@@ -126,6 +165,36 @@ fn main() -> Result<()> {
                     no_merges: args.no_merges,
                 };
                 output::render_repo(&repo, args.metric, &ctx, args.format)?;
+            }
+            Some(StatsCommand::Authors(args)) => {
+                let repo_display = if let Some(p) = repo.workdir() {
+                    p.display().to_string()
+                } else if let Some(parent) = repo.path().parent() {
+                    parent.display().to_string()
+                } else { String::from(".") };
+                let ctx = stats::StatsContext {
+                    repo_path: repo_display,
+                    since: args.since.clone(),
+                    until: args.until.clone(),
+                    bucket: stats::Bucket::Week, // unused for authors
+                    no_merges: args.no_merges,
+                };
+                output::render_authors(&repo, &ctx, args.metric, args.top, args.format)?;
+            }
+            Some(StatsCommand::Calendar(args)) => {
+                let repo_display = if let Some(p) = repo.workdir() {
+                    p.display().to_string()
+                } else if let Some(parent) = repo.path().parent() {
+                    parent.display().to_string()
+                } else { String::from(".") };
+                let ctx = stats::StatsContext {
+                    repo_path: repo_display,
+                    since: args.since.clone(),
+                    until: args.until.clone(),
+                    bucket: stats::Bucket::Week, // unused for calendar
+                    no_merges: false,
+                };
+                output::render_calendar(&repo, &ctx, args.format)?;
             }
             None => show_stats(&repo)?,
         },

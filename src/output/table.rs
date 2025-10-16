@@ -2,6 +2,8 @@ use anyhow::Result;
 use crate::stats::StatsContext;
 use crate::stats::activity::ActivityPoint;
 use crate::stats::churn::ChurnPoint;
+use crate::stats::authors::AuthorStats;
+use crate::stats::AuthorMetric;
 use time::OffsetDateTime;
 
 fn fmt_bucket(ts: i64) -> String {
@@ -39,6 +41,33 @@ pub fn print_repo_churn(ctx: &StatsContext, series: &[ChurnPoint]) -> Result<()>
     }
     if series.len() > 20 {
         println!(" ... ({} more)", series.len() - 20);
+    }
+    Ok(())
+}
+
+pub fn print_authors_table(authors: &[AuthorStats], metric: AuthorMetric) -> Result<()> {
+    println!("🦀 Top authors by {}", match metric { AuthorMetric::Commits => "commits", AuthorMetric::Churn => "churn"});
+    println!("============================\n");
+    println!(" author                       commits    adds    dels    total");
+    println!(" --------------------------  -------  ------  ------  ------");
+    for a in authors.iter() {
+        let total = a.adds + a.dels;
+        println!(" {:<26}  {:>7}  {:>6}  {:>6}  {:>6}", a.author, a.commits, a.adds, a.dels, total);
+    }
+    Ok(())
+}
+
+pub fn print_calendar_table(matrix: &[[u64;24];7]) -> Result<()> {
+    println!("🦀 Weekday x Hour activity (UTC)");
+    println!("===============================\n");
+    println!("        00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23");
+    let days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+    for (r, day) in days.iter().enumerate() {
+        print!(" {} ", day);
+        for c in 0..24 {
+            print!("{:>3}", matrix[r][c]);
+        }
+        println!();
     }
     Ok(())
 }
