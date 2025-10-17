@@ -22,8 +22,12 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+mod cache;
+mod config;
 mod output;
+mod parallel;
 mod stats;
+mod telemetry;
 #[derive(Parser)]
 #[command(name = "gitcrab")]
 #[command(about = "CLI tool for inspecting Git repos. Blazingly fast 🦀", long_about = None)]
@@ -32,6 +36,22 @@ struct Cli {
     /// Path to the Git repository (defaults to current directory)
     #[arg(short, long, value_name = "PATH")]
     repo: Option<PathBuf>,
+
+    /// Enable debug mode with timing logs
+    #[arg(long, default_value_t = false)]
+    debug: bool,
+
+    /// Disable caching
+    #[arg(long, default_value_t = false)]
+    no_cache: bool,
+
+    /// Disable parallel processing
+    #[arg(long, default_value_t = false)]
+    no_parallel: bool,
+
+    /// Maximum number of threads for parallel processing
+    #[arg(long)]
+    max_threads: Option<usize>,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -284,6 +304,21 @@ struct ReleasesArgs {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    // Load configuration with CLI overrides
+    let config_overrides = config::ConfigOverrides {
+        debug: Some(cli.debug),
+        cache_enabled: Some(!cli.no_cache),
+        parallel_enabled: Some(!cli.no_parallel),
+        max_threads: cli.max_threads,
+    };
+    let global_config = config::GlobalConfig::load().with_overrides(config_overrides);
+    
+    // Initialize performance metrics
+    let perf_metrics = telemetry::PerfMetrics::new(global_config.debug.timing);
+    let debug_logger = telemetry::DebugLogger::new(global_config.debug.enabled);
+    
+    debug_logger.info("GitCrab starting with configuration loaded");
+    
     let repo_path = cli.repo.unwrap_or_else(|| PathBuf::from("."));
     let repo = Repository::open(&repo_path)
         .context(format!("Failed to open repository at {:?}", repo_path))?;
@@ -308,7 +343,7 @@ fn main() -> Result<()> {
                     bucket: args.bucket,
                     no_merges: args.no_merges,
                 };
-                output::render_repo(&repo, args.metric, &ctx, args.format)?;
+                output::render_repo(&repo, args.metric, &ctx, args.format)?
             }
             Some(StatsCommand::Authors(args)) => {
                 let repo_display = if let Some(p) = repo.workdir() {
@@ -325,7 +360,7 @@ fn main() -> Result<()> {
                     bucket: stats::Bucket::Week, // unused for authors
                     no_merges: args.no_merges,
                 };
-                output::render_authors(&repo, &ctx, args.metric, args.top, args.format)?;
+                output::render_authors(&repo, &ctx, args.metric, args.top, args.format)?
             }
             Some(StatsCommand::Calendar(args)) => {
                 let repo_display = if let Some(p) = repo.workdir() {
@@ -342,7 +377,7 @@ fn main() -> Result<()> {
                     bucket: stats::Bucket::Week, // unused for calendar
                     no_merges: false,
                 };
-                output::render_calendar(&repo, &ctx, args.format)?;
+                output::render_calendar(&repo, &ctx, args.format)?
             }
             Some(StatsCommand::Hotspots(args)) => {
                 let repo_display = if let Some(p) = repo.workdir() {
@@ -367,7 +402,7 @@ fn main() -> Result<()> {
                     args.half_life_days,
                     args.top,
                     args.format,
-                )?;
+                )?
             }
             Some(StatsCommand::Branches(args)) => {
                 let repo_display = if let Some(p) = repo.workdir() {
@@ -384,7 +419,7 @@ fn main() -> Result<()> {
                     bucket: stats::Bucket::Week,
                     no_merges: args.no_merges,
                 };
-                output::render_branches(&repo, &ctx, args.base.as_deref(), args.format)?;
+                output::render_branches(&repo, &ctx, args.base.as_deref(), args.format)?
             }
             Some(StatsCommand::Coupling(args)) => {
                 let repo_display = if let Some(p) = repo.workdir() {
@@ -408,7 +443,7 @@ fn main() -> Result<()> {
                     args.min_support,
                     args.window_size,
                     args.format,
-                )?;
+                )?
             }
             Some(StatsCommand::Ownership(args)) => {
                 let repo_display = if let Some(p) = repo.workdir() {
@@ -433,7 +468,7 @@ fn main() -> Result<()> {
                     args.exclude.as_deref(),
                     args.expensive,
                     args.format,
-                )?;
+                )?
             }
             Some(StatsCommand::Stability(args)) => {
                 let repo_display = if let Some(p) = repo.workdir() {
@@ -457,21 +492,24 @@ fn main() -> Result<()> {
                     args.directory.as_deref(),
                     args.top,
                     args.format,
-                )?;
+                )?
             }
             Some(StatsCommand::Releases(args)) => {
-                output::render_releases(&repo, args.limit, args.format)?;
+                output::render_releases(&repo, args.limit, args.format)?
             }
-            None => show_stats(&repo)?,
+            None => show_stats(&repo)?
         },
         Some(Commands::Tui) => run_tui(&repo)?,
         Some(Commands::Interactive) => interactive_mode(&repo)?,
         None => {
             // Default behavior: show status
-            show_status(&repo)?;
+            show_status(&repo)?
         }
     }
 
+    // Print performance summary if debug is enabled
+    perf_metrics.print_summary();
+    
     Ok(())
 }
 

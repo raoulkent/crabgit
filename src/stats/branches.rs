@@ -319,7 +319,7 @@ mod tests {
         let stats = analyze_branches(&repo, None, None, None, false)?;
 
         // Should work with basic repository
-        assert!(stats.branches.len() >= 0); // May or may not have branches depending on setup
+        // branches.len() is always >= 0 for Vec<T>, so no need to assert this
 
         Ok(())
     }

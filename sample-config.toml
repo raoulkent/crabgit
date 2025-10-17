@@ -1,0 +1,19 @@
+# GitCrab Configuration File
+# This demonstrates the Phase 10 configuration system
+
+default_window = "180d"  # Analyze last 6 months by default
+default_top = 50         # Show top 50 results by default
+
+[cache]
+enabled = true
+max_size_mb = 200
+
+[parallel]
+enabled = true
+max_threads = 4
+chunk_size = 2000
+
+[debug]
+enabled = false
+timing = false
+log_level = "info"
