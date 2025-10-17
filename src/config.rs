@@ -11,19 +11,19 @@ pub struct GlobalConfig {
     /// Default time window for analysis (e.g., "90d", "6m", "1y")
     #[serde(default = "default_window")]
     pub default_window: String,
-    
+
     /// Default number of top results to show
     #[serde(default = "default_top")]
     pub default_top: usize,
-    
+
     /// Cache configuration
     #[serde(default)]
     pub cache: CacheConfig,
-    
+
     /// Parallel processing configuration
     #[serde(default)]
     pub parallel: ParallelConfig,
-    
+
     /// Debug configuration
     #[serde(default)]
     pub debug: DebugConfig,
@@ -47,11 +47,11 @@ pub struct ParallelConfig {
     /// Enable parallel processing
     #[serde(default = "default_parallel_enabled")]
     pub enabled: bool,
-    
+
     /// Maximum number of threads (0 = use all available cores)
     #[serde(default)]
     pub max_threads: usize,
-    
+
     /// Chunk size for parallel processing
     #[serde(default = "default_chunk_size")]
     pub chunk_size: usize,
@@ -73,11 +73,11 @@ pub struct DebugConfig {
     /// Enable debug mode
     #[serde(default)]
     pub enabled: bool,
-    
+
     /// Enable timing logs
     #[serde(default)]
     pub timing: bool,
-    
+
     /// Log level (error, warn, info, debug, trace)
     #[serde(default = "default_log_level")]
     pub log_level: String,
@@ -135,33 +135,32 @@ impl GlobalConfig {
         let config_path = get_config_file_path();
         let content = fs::read_to_string(&config_path)
             .context(format!("Failed to read config file: {:?}", config_path))?;
-        
-        let config: GlobalConfig = toml::from_str(&content)
-            .context("Failed to parse config file")?;
-        
+
+        let config: GlobalConfig =
+            toml::from_str(&content).context("Failed to parse config file")?;
+
         Ok(config)
     }
 
     /// Save configuration to file
     pub fn save(&self) -> Result<()> {
         let config_path = get_config_file_path();
-        
+
         // Create parent directory if it doesn't exist
         if let Some(parent) = config_path.parent() {
-            fs::create_dir_all(parent)
-                .context("Failed to create config directory")?;
+            fs::create_dir_all(parent).context("Failed to create config directory")?;
         }
 
-        let content = toml::to_string_pretty(self)
-            .context("Failed to serialize config")?;
-        
+        let content = toml::to_string_pretty(self).context("Failed to serialize config")?;
+
         fs::write(&config_path, content)
             .context(format!("Failed to write config file: {:?}", config_path))?;
-        
+
         Ok(())
     }
 
     /// Get the path to the config file
+    #[allow(dead_code)]
     pub fn config_file_path() -> PathBuf {
         get_config_file_path()
     }
@@ -172,19 +171,19 @@ impl GlobalConfig {
             self.debug.enabled = debug;
             self.debug.timing = debug; // Enable timing when debug is enabled
         }
-        
+
         if let Some(cache_enabled) = overrides.cache_enabled {
             self.cache.enabled = cache_enabled;
         }
-        
+
         if let Some(parallel_enabled) = overrides.parallel_enabled {
             self.parallel.enabled = parallel_enabled;
         }
-        
+
         if let Some(max_threads) = overrides.max_threads {
             self.parallel.max_threads = max_threads;
         }
-        
+
         self
     }
 }
@@ -207,32 +206,39 @@ fn get_config_file_path() -> PathBuf {
 }
 
 /// Parse duration string (e.g., "90d", "6m", "1y") into days
+#[allow(dead_code)]
 pub fn parse_duration_to_days(duration: &str) -> Result<u64> {
     if duration.is_empty() {
         return Err(anyhow::anyhow!("Duration cannot be empty"));
     }
-    
+
     let (number_str, unit) = if let Some(last_char) = duration.chars().last() {
         if last_char.is_alphabetic() {
-            (&duration[..duration.len()-1], last_char)
+            (&duration[..duration.len() - 1], last_char)
         } else {
             (duration, 'd') // Default to days if no unit specified
         }
     } else {
         return Err(anyhow::anyhow!("Invalid duration format"));
     };
-    
-    let number: u64 = number_str.parse()
+
+    let number: u64 = number_str
+        .parse()
         .context("Failed to parse duration number")?;
-    
+
     let days = match unit.to_ascii_lowercase() {
         'd' => number,
         'w' => number * 7,
-        'm' => number * 30, // Approximate month
+        'm' => number * 30,  // Approximate month
         'y' => number * 365, // Approximate year
-        _ => return Err(anyhow::anyhow!("Invalid duration unit: {}. Use d, w, m, or y", unit)),
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Invalid duration unit: {}. Use d, w, m, or y",
+                unit
+            ));
+        }
     };
-    
+
     Ok(days)
 }
 
@@ -255,26 +261,26 @@ mod tests {
         let config = GlobalConfig::default();
         let serialized = toml::to_string(&config)?;
         let deserialized: GlobalConfig = toml::from_str(&serialized)?;
-        
+
         assert_eq!(config.default_window, deserialized.default_window);
         assert_eq!(config.default_top, deserialized.default_top);
-        
+
         Ok(())
     }
 
     #[test]
     fn test_config_overrides() {
         let config = GlobalConfig::default();
-        
+
         let overrides = ConfigOverrides {
             debug: Some(true),
             cache_enabled: Some(false),
             parallel_enabled: Some(false),
             max_threads: Some(4),
         };
-        
+
         let config_with_overrides = config.with_overrides(overrides);
-        
+
         assert!(config_with_overrides.debug.enabled);
         assert!(config_with_overrides.debug.timing); // Should be enabled with debug
         assert!(!config_with_overrides.cache.enabled);
@@ -289,11 +295,11 @@ mod tests {
         assert_eq!(parse_duration_to_days("3m")?, 90);
         assert_eq!(parse_duration_to_days("1y")?, 365);
         assert_eq!(parse_duration_to_days("30")?, 30); // Default to days
-        
+
         // Case insensitive
         assert_eq!(parse_duration_to_days("7D")?, 7);
         assert_eq!(parse_duration_to_days("2W")?, 14);
-        
+
         Ok(())
     }
 

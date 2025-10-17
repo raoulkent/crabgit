@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gitcrab.dev/schemas/calendar.json",
+  "title": "Calendar Heatmap Output",
+  "description": "GitCrab weekday/hour activity heatmap analysis",
+  "type": "object",
+  "required": ["context", "kind", "matrix"],
+  "properties": {
+    "context": {
+      "$ref": "repo-activity.json#/$defs/StatsContext"
+    },
+    "kind": {
+      "type": "string",
+      "const": "weekday_hour",
+      "description": "Type of calendar analysis - weekday by hour matrix"
+    },
+    "matrix": {
+      "type": "array",
+      "description": "7x24 matrix of commit counts [weekday][hour]",
+      "items": {
+        "type": "array",
+        "description": "24-hour array for one weekday (0=Sunday, 6=Saturday)",
+        "items": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of commits in this weekday+hour slot"
+        },
+        "minItems": 24,
+        "maxItems": 24
+      },
+      "minItems": 7,
+      "maxItems": 7
+    }
+  },
+  "example": {
+    "context": {
+      "repo_path": "/home/user/my-project",
+      "since": "365d",
+      "until": null,
+      "bucket": "Week",
+      "no_merges": false
+    },
+    "kind": "weekday_hour",
+    "matrix": [
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 4, 6, 8, 5, 3, 1, 2, 1, 1, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 1, 3, 12, 18, 25, 22, 20, 18, 15, 8, 4, 2, 1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 2, 5, 15, 22, 28, 26, 24, 21, 16, 9, 5, 3, 1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 1, 4, 14, 20, 27, 25, 23, 20, 17, 10, 6, 3, 1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 2, 6, 16, 23, 29, 27, 25, 22, 18, 11, 7, 4, 2, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 1, 3, 8, 12, 15, 13, 11, 9, 6, 4, 2, 1, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 5, 7, 6, 5, 4, 2, 1, 1, 0, 0, 0, 0, 0, 0]
+    ]
+  }
+}

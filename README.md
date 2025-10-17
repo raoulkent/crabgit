@@ -52,31 +52,136 @@ gitcrab log --count 20
 
 ### Advanced Analytics
 
+#### Repository Activity Analysis
+
+Track development patterns and commit frequency over time:
+
+```bash
+# Repository activity over last 90 days (weekly buckets)
+gitcrab stats repo --since 90d --bucket week
+
+# Daily commit activity for current month
+gitcrab stats repo --since 30d --bucket day --format table
+
+# Monthly activity trend for the past year
+gitcrab stats repo --since 365d --bucket month --format chart
+
+# Code churn (lines added/deleted) analysis
+gitcrab stats repo --metric churn --since 180d
+```
+
+#### Author and Contributor Analysis
+
+Understand team contributions and collaboration patterns:
+
+```bash
+# Top 15 contributors by commit count
+gitcrab stats authors --top 15 --metric commits
+
+# Top contributors by code churn (lines changed)
+gitcrab stats authors --metric churn --format table
+
+# Author activity excluding merge commits
+gitcrab stats authors --no-merges --since 90d
+
+# JSON output for data processing
+gitcrab stats authors --format json --top 20
+```
+
+#### Activity Heatmaps
+
+Visualize when development activity happens:
+
+```bash
+# Weekday/hour activity heatmap
+gitcrab stats calendar --since 365d
+
+# Activity patterns for recent months
+gitcrab stats calendar --since 90d --format chart
+
+# JSON format for external visualization
+gitcrab stats calendar --format json > heatmap.json
+```
+
+#### File Hotspot Analysis
+
+Identify files with high change frequency using recency decay:
+
+```bash
+# Top 25 hotspots with 90-day decay
+gitcrab stats hotspots --since 180d --top 25
+
+# Focus on source code files only
+gitcrab stats hotspots --include 'src/**' --half-life-days 60
+
+# Exclude test files from analysis
+gitcrab stats hotspots --exclude 'tests/**' --format table
+
+# Chart visualization of hotspots
+gitcrab stats hotspots --format chart --top 15
+```
+
+#### Branch Analysis
+
+Compare branch activity and divergence:
+
+```bash
+# Branch analysis vs main branch
+gitcrab stats branches --base origin/main
+
+# Activity across all branches (last 30 days)
+gitcrab stats branches --since 30d --no-merges
+
+# JSON output for CI/CD integration
+gitcrab stats branches --format json
+```
+
+#### Code Coupling Analysis
+
+Find files that change together frequently:
+
+```bash
+# Top 20 coupled file pairs
+gitcrab stats coupling --top 20 --min-support 0.05
+
+# Coupling analysis for recent changes
+gitcrab stats coupling --since 90d --window-size 1000
+
+# High-confidence coupling relationships
+gitcrab stats coupling --min-support 0.1 --format json
+```
+
+#### Code Ownership Analysis
+
+Understand who owns what parts of the codebase:
+
+```bash
+# Fast ownership approximation (last-modified)
+gitcrab stats ownership --top 30
+
+# Expensive but accurate blame-based analysis
+gitcrab stats ownership --expensive --top 20
+
+# Focus on specific file patterns
+gitcrab stats ownership --include '*.rs' --exclude 'target/*'
+```
+
 #### Change Stability Analysis
 
 Analyze the stability of file changes to identify areas that may need attention:
 
 ```bash
 # Analyze stability of all files (shows least stable first)
-gitcrab stats stability
+gitcrab stats stability --top 25
 
 # Filter by author to assess consultant/new developer impact
-gitcrab stats stability --author "John Doe"
+gitcrab stats stability --author "John Doe" --since 90d
 
 # Focus on specific directory
-gitcrab stats stability --directory src/
-
-# Analyze recent changes only
-gitcrab stats stability --since 30d
-
-# Show top 10 most unstable files
-gitcrab stats stability --top 10
+gitcrab stats stability --directory src/ --no-merges
 
 # Get JSON output for further processing
-gitcrab stats stability --format json
-
-# Visual chart of stability scores
-gitcrab stats stability --format chart
+gitcrab stats stability --format json --top 15
 ```
 
 **Stability Metrics Explained:**
@@ -88,11 +193,67 @@ gitcrab stats stability --format chart
 - **Avg Days**: Average time between modifications
 - **Primary Author**: Developer who made the most changes to the file
 
-Use this analysis to:
-- Evaluate code quality from consultants or new team members
-- Identify files that may need refactoring or better testing
-- Spot patterns in problematic areas of the codebase
-- Make data-driven decisions about code review focus
+#### Release Analysis
+
+Analyze release patterns and tag-based metrics:
+
+```bash
+# Analyze last 10 releases
+gitcrab stats releases --limit 10
+
+# All releases with detailed metrics
+gitcrab stats releases --format json
+```
+
+### Output Formats
+
+GitCrab supports multiple output formats for different use cases:
+
+| Format | Use Case | Example |
+|--------|----------|---------|
+| `table` | Human-readable terminal output | `--format table` |
+| `json` | Programmatic processing, APIs | `--format json` |
+| `chart` | ASCII visualizations, dashboards | `--format chart` |
+
+### Integration Examples
+
+#### CI/CD Pipeline Integration
+
+```bash
+#!/bin/bash
+# Generate release metrics for CI
+gitcrab stats releases --format json > metrics/releases.json
+gitcrab stats hotspots --format json > metrics/hotspots.json
+gitcrab stats authors --format json > metrics/contributors.json
+```
+
+#### Data Analysis Workflows
+
+```bash
+# Extract commit counts for analysis
+gitcrab stats repo --format json | jq '.series[].commits'
+
+# Get top author commit counts
+gitcrab stats authors --format json | jq '.authors[] | {name: .author, commits: .commits}'
+
+# Find files with high churn
+gitcrab stats hotspots --format json | jq '.hotspots[0:5] | .[] | .path'
+```
+
+### Performance Optimization
+
+For large repositories, GitCrab provides several optimization options:
+
+```bash
+# Use caching for repeated analyses
+gitcrab --no-cache stats repo  # Disable cache
+
+# Control parallel processing
+gitcrab --max-threads 4 stats coupling
+
+# Debug performance timing
+gitcrab --debug stats hotspots --since 180d
+```
 
 ### Analyzing Different Repositories
 

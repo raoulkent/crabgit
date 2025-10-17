@@ -30,7 +30,35 @@ mod stats;
 mod telemetry;
 #[derive(Parser)]
 #[command(name = "gitcrab")]
-#[command(about = "CLI tool for inspecting Git repos. Blazingly fast 🦀", long_about = None)]
+#[command(about = "CLI tool for inspecting Git repos. Blazingly fast 🦀")]
+#[command(
+    long_about = "GitCrab provides data-driven insights into Git repositories through statistical analysis and interactive exploration.
+
+EXAMPLES:
+    # Show repository status (default)
+    gitcrab
+    
+    # Comprehensive repository statistics
+    gitcrab stats
+    
+    # Analyze commit activity over last 90 days
+    gitcrab stats repo --since 90d --format table
+    
+    # Find top contributors by commits
+    gitcrab stats authors --top 10 --metric commits
+    
+    # Identify file hotspots with high churn
+    gitcrab stats hotspots --since 180d --top 25
+    
+    # Analyze code stability and change patterns
+    gitcrab stats stability --author \"John Doe\" --top 15
+    
+    # Interactive Terminal UI for exploration
+    gitcrab tui
+    
+    # Analyze a different repository
+    gitcrab --repo /path/to/repo stats authors"
+)]
 #[command(version)]
 struct Cli {
     /// Path to the Git repository (defaults to current directory)
@@ -73,15 +101,84 @@ enum Commands {
     },
 
     /// Show repository statistics for data-driven insights
+    #[command(
+        long_about = "Analyze repository data through various statistical lenses.
+
+EXAMPLES:
+    # Basic repository statistics (default)
+    gitcrab stats
+    
+    # Repository activity over time
+    gitcrab stats repo --since 90d --bucket week
+    
+    # Top authors by commits or churn
+    gitcrab stats authors --top 15 --metric commits
+    gitcrab stats authors --metric churn --format json
+    
+    # Activity heatmap by weekday/hour
+    gitcrab stats calendar --since 180d
+    
+    # File hotspots with recency decay
+    gitcrab stats hotspots --half-life-days 60 --include 'src/**'
+    
+    # Branch analysis and comparison
+    gitcrab stats branches --base origin/main
+    
+    # File coupling and co-change analysis
+    gitcrab stats coupling --min-support 0.05 --top 20
+    
+    # Code ownership patterns
+    gitcrab stats ownership --expensive --top 30
+    
+    # Change stability analysis
+    gitcrab stats stability --directory src/ --no-merges
+    
+    # Release and tag metrics
+    gitcrab stats releases --limit 10"
+    )]
     Stats {
         #[command(subcommand)]
         command: Option<StatsCommand>,
     },
 
     /// Launch TUI (Terminal User Interface) mode
+    #[command(
+        long_about = "Launch a full-screen terminal interface for interactive repository exploration.
+
+Features tabbed navigation through:
+- Repository status and basic information
+- Branch listing with current branch indicator  
+- Recent commit history with short IDs
+- Statistical summaries and metrics
+
+Navigation:
+- Left/Right arrow keys to switch tabs
+- 'q' to quit
+
+EXAMPLE:
+    gitcrab tui"
+    )]
     Tui,
 
     /// Interactive mode for exploring the repository
+    #[command(
+        long_about = "Menu-driven interface for step-by-step repository analysis.
+
+Provides a guided experience through:
+- Repository status inspection
+- Branch management
+- Commit history browsing
+- Statistical analysis
+- TUI mode launching
+
+Ideal for:
+- First-time users learning GitCrab features
+- Exploratory analysis workflows
+- When you're unsure which analysis to run
+
+EXAMPLE:
+    gitcrab interactive"
+    )]
     Interactive,
 }
 
@@ -312,13 +409,13 @@ fn main() -> Result<()> {
         max_threads: cli.max_threads,
     };
     let global_config = config::GlobalConfig::load().with_overrides(config_overrides);
-    
+
     // Initialize performance metrics
     let perf_metrics = telemetry::PerfMetrics::new(global_config.debug.timing);
     let debug_logger = telemetry::DebugLogger::new(global_config.debug.enabled);
-    
+
     debug_logger.info("GitCrab starting with configuration loaded");
-    
+
     let repo_path = cli.repo.unwrap_or_else(|| PathBuf::from("."));
     let repo = Repository::open(&repo_path)
         .context(format!("Failed to open repository at {:?}", repo_path))?;
@@ -497,7 +594,7 @@ fn main() -> Result<()> {
             Some(StatsCommand::Releases(args)) => {
                 output::render_releases(&repo, args.limit, args.format)?
             }
-            None => show_stats(&repo)?
+            None => show_stats(&repo)?,
         },
         Some(Commands::Tui) => run_tui(&repo)?,
         Some(Commands::Interactive) => interactive_mode(&repo)?,
@@ -509,7 +606,7 @@ fn main() -> Result<()> {
 
     // Print performance summary if debug is enabled
     perf_metrics.print_summary();
-    
+
     Ok(())
 }
 

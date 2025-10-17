@@ -258,6 +258,7 @@ mod tests {
         Ok((temp_dir, repo))
     }
 
+    #[allow(dead_code)]
     fn create_commit(
         repo: &Repository,
         message: &str,
@@ -316,7 +317,7 @@ mod tests {
         let (_temp_dir, repo) = create_test_repo()?;
 
         // Analyze branches
-        let stats = analyze_branches(&repo, None, None, None, false)?;
+        let _stats = analyze_branches(&repo, None, None, None, false)?;
 
         // Should work with basic repository
         // branches.len() is always >= 0 for Vec<T>, so no need to assert this

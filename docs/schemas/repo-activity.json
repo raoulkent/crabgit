@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gitcrab.dev/schemas/repo-activity.json",
+  "title": "Repository Activity Output",
+  "description": "GitCrab repository activity analysis over time",
+  "type": "object",
+  "required": ["context", "metric", "bucket", "series"],
+  "properties": {
+    "context": {
+      "$ref": "#/$defs/StatsContext"
+    },
+    "metric": {
+      "type": "string",
+      "const": "activity",
+      "description": "Analysis type - activity tracks commit frequency"
+    },
+    "bucket": {
+      "$ref": "#/$defs/Bucket"
+    },
+    "series": {
+      "type": "array",
+      "description": "Time series data points",
+      "items": {
+        "$ref": "#/$defs/ActivityPoint"
+      }
+    }
+  },
+  "$defs": {
+    "StatsContext": {
+      "type": "object",
+      "required": ["repo_path", "bucket", "no_merges"],
+      "properties": {
+        "repo_path": {
+          "type": "string",
+          "description": "Path to the analyzed repository"
+        },
+        "since": {
+          "type": ["string", "null"],
+          "description": "Start of analysis window (e.g., '90d', '2024-01-01')"
+        },
+        "until": {
+          "type": ["string", "null"],
+          "description": "End of analysis window"
+        },
+        "bucket": {
+          "$ref": "#/$defs/Bucket"
+        },
+        "no_merges": {
+          "type": "boolean",
+          "description": "Whether merge commits were excluded"
+        }
+      }
+    },
+    "Bucket": {
+      "type": "string",
+      "enum": ["Day", "Week", "Month"],
+      "description": "Time aggregation bucket size"
+    },
+    "ActivityPoint": {
+      "type": "object",
+      "required": ["bucket_start", "commits"],
+      "properties": {
+        "bucket_start": {
+          "type": "integer",
+          "description": "Unix timestamp of bucket start"
+        },
+        "commits": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of commits in this time bucket"
+        }
+      }
+    }
+  },
+  "example": {
+    "context": {
+      "repo_path": "/home/user/my-project",
+      "since": "90d",
+      "until": null,
+      "bucket": "Week",
+      "no_merges": false
+    },
+    "metric": "activity",
+    "bucket": "Week",
+    "series": [
+      {
+        "bucket_start": 1704067200,
+        "commits": 12
+      },
+      {
+        "bucket_start": 1704672000,
+        "commits": 8
+      },
+      {
+        "bucket_start": 1705276800,
+        "commits": 15
+      }
+    ]
+  }
+}
