@@ -485,7 +485,7 @@ mod tests {
         
         // Test years
         let result = parse_time_spec("1y").unwrap();
-        let expected = now - (1 * 365 * 24 * 3600);
+        let expected = now - (365 * 24 * 3600);
         assert!((result - expected).abs() <= 1, "1y should parse to 1 year ago");
         
         // Test invalid format
