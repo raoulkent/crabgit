@@ -438,7 +438,7 @@ mod tests {
             create_commit_with_files(&repo, "Test commit", &[("test.txt", "content")], None)?;
 
         // Test with time filter that should exclude all commits
-        let stats = analyze_coupling(&repo, Some("1d"), None, false, 10, 0.0, 100)?;
+        let _stats = analyze_coupling(&repo, Some("1d"), None, false, 10, 0.0, 100)?;
 
         // Should work even with time filters
         // total_commits is usize, so always >= 0

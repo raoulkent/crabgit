@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 /// Timer for measuring operation durations
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Timer {
     start: Instant,
@@ -9,13 +10,14 @@ pub struct Timer {
     enabled: bool,
 }
 
+#[allow(dead_code)]
 impl Timer {
     /// Create a new timer
     pub fn new(name: &str, enabled: bool) -> Self {
         if enabled {
             println!("[TIMER] Starting: {}", name);
         }
-        
+
         Self {
             start: Instant::now(),
             name: name.to_string(),
@@ -26,22 +28,25 @@ impl Timer {
     /// Stop the timer and log the duration
     pub fn stop(self) -> Duration {
         let duration = self.start.elapsed();
-        
+
         if self.enabled {
             println!("[TIMER] Finished: {} ({:?})", self.name, duration);
         }
-        
+
         duration
     }
 
     /// Stop the timer with a custom message
     pub fn stop_with_message(self, message: &str) -> Duration {
         let duration = self.start.elapsed();
-        
+
         if self.enabled {
-            println!("[TIMER] Finished: {} - {} ({:?})", self.name, message, duration);
+            println!(
+                "[TIMER] Finished: {} - {} ({:?})",
+                self.name, message, duration
+            );
         }
-        
+
         duration
     }
 }
@@ -53,6 +58,7 @@ pub struct PerfMetrics {
     enabled: bool,
 }
 
+#[allow(dead_code)]
 impl PerfMetrics {
     /// Create a new metrics collector
     pub fn new(enabled: bool) -> Self {
@@ -63,11 +69,12 @@ impl PerfMetrics {
     }
 
     /// Record a timing measurement
+    #[allow(dead_code)]
     pub fn record(&mut self, operation: &str, duration: Duration) {
         if !self.enabled {
             return;
         }
-        
+
         self.timings
             .entry(operation.to_string())
             .or_default()
@@ -75,6 +82,7 @@ impl PerfMetrics {
     }
 
     /// Start a timer for an operation
+    #[allow(dead_code)]
     pub fn timer(&self, operation: &str) -> Timer {
         Timer::new(operation, self.enabled)
     }
@@ -82,18 +90,18 @@ impl PerfMetrics {
     /// Get summary statistics for all recorded operations
     pub fn summary(&self) -> PerformanceSummary {
         let mut operations = Vec::new();
-        
+
         for (name, durations) in &self.timings {
             if durations.is_empty() {
                 continue;
             }
-            
+
             let total: Duration = durations.iter().sum();
             let count = durations.len();
             let avg = total / count as u32;
             let min = *durations.iter().min().unwrap();
             let max = *durations.iter().max().unwrap();
-            
+
             operations.push(OperationStats {
                 name: name.clone(),
                 count,
@@ -103,10 +111,10 @@ impl PerfMetrics {
                 max,
             });
         }
-        
+
         // Sort by total time descending
         operations.sort_by(|a, b| b.total.cmp(&a.total));
-        
+
         PerformanceSummary { operations }
     }
 
@@ -115,23 +123,24 @@ impl PerfMetrics {
         if !self.enabled || self.timings.is_empty() {
             return;
         }
-        
+
         let summary = self.summary();
-        
+
         println!("\n[PERF] Performance Summary");
         println!("[PERF] ===================");
-        
+
         for stats in &summary.operations {
             println!(
                 "[PERF] {}: {} calls, total: {:?}, avg: {:?}, min: {:?}, max: {:?}",
                 stats.name, stats.count, stats.total, stats.avg, stats.min, stats.max
             );
         }
-        
+
         println!();
     }
 
     /// Clear all recorded metrics
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.timings.clear();
     }
@@ -171,6 +180,7 @@ pub struct DebugLogger {
     enabled: bool,
 }
 
+#[allow(dead_code)]
 impl DebugLogger {
     /// Create a new debug logger
     pub fn new(enabled: bool) -> Self {
@@ -178,6 +188,7 @@ impl DebugLogger {
     }
 
     /// Log a debug message
+    #[allow(dead_code)]
     pub fn debug(&self, message: &str) {
         if self.enabled {
             println!("[DEBUG] {}", message);
@@ -185,6 +196,7 @@ impl DebugLogger {
     }
 
     /// Log a debug message with formatting
+    #[allow(dead_code)]
     pub fn debugf(&self, args: std::fmt::Arguments) {
         if self.enabled {
             println!("[DEBUG] {}", args);
@@ -199,6 +211,7 @@ impl DebugLogger {
     }
 
     /// Log a warning message
+    #[allow(dead_code)]
     pub fn warn(&self, message: &str) {
         if self.enabled {
             println!("[WARN] {}", message);
@@ -206,6 +219,7 @@ impl DebugLogger {
     }
 
     /// Log an error message
+    #[allow(dead_code)]
     pub fn error(&self, message: &str) {
         if self.enabled {
             eprintln!("[ERROR] {}", message);
@@ -223,7 +237,7 @@ mod tests {
         let timer = Timer::new("test_operation", true);
         thread::sleep(Duration::from_millis(1));
         let duration = timer.stop();
-        
+
         assert!(duration >= Duration::from_millis(1));
     }
 
@@ -232,29 +246,30 @@ mod tests {
         let timer = Timer::new("test_operation", false);
         thread::sleep(Duration::from_millis(1));
         let duration = timer.stop();
-        
+
         assert!(duration >= Duration::from_millis(1));
     }
 
     #[test]
     fn test_perf_metrics() {
         let mut metrics = PerfMetrics::new(true);
-        
+
         // Record some test timings
         metrics.record("operation1", Duration::from_millis(100));
         metrics.record("operation1", Duration::from_millis(200));
         metrics.record("operation2", Duration::from_millis(50));
-        
+
         let summary = metrics.summary();
-        
+
         assert_eq!(summary.operations.len(), 2);
-        
+
         // Find operation1 stats
-        let op1_stats = summary.operations
+        let op1_stats = summary
+            .operations
             .iter()
             .find(|s| s.name == "operation1")
             .unwrap();
-        
+
         assert_eq!(op1_stats.count, 2);
         assert_eq!(op1_stats.total, Duration::from_millis(300));
         assert_eq!(op1_stats.avg, Duration::from_millis(150));
@@ -265,9 +280,9 @@ mod tests {
     #[test]
     fn test_perf_metrics_disabled() {
         let mut metrics = PerfMetrics::new(false);
-        
+
         metrics.record("operation1", Duration::from_millis(100));
-        
+
         let summary = metrics.summary();
         assert_eq!(summary.operations.len(), 0);
     }
@@ -275,13 +290,13 @@ mod tests {
     #[test]
     fn test_debug_logger() {
         let logger = DebugLogger::new(true);
-        
+
         // These should not panic
         logger.debug("Debug message");
         logger.info("Info message");
         logger.warn("Warning message");
         logger.error("Error message");
-        
+
         let disabled_logger = DebugLogger::new(false);
         disabled_logger.debug("This should not print");
     }

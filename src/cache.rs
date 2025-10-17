@@ -28,6 +28,7 @@ impl Default for CacheConfig {
 }
 
 /// Cached commit statistics
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CachedCommitStats {
     pub oid: String,
@@ -38,16 +39,17 @@ pub struct CachedCommitStats {
 }
 
 /// Cache manager for commit statistics
+#[allow(dead_code)]
 pub struct CommitStatsCache {
     config: CacheConfig,
     memory_cache: HashMap<Oid, CachedCommitStats>,
 }
 
+#[allow(dead_code)]
 impl CommitStatsCache {
     pub fn new(config: CacheConfig) -> Result<Self> {
         if config.enabled {
-            fs::create_dir_all(&config.cache_dir)
-                .context("Failed to create cache directory")?;
+            fs::create_dir_all(&config.cache_dir).context("Failed to create cache directory")?;
         }
 
         Ok(Self {
@@ -77,8 +79,7 @@ impl CommitStatsCache {
             return Ok(());
         }
 
-        let oid = git2::Oid::from_str(&stats.oid)
-            .context("Invalid OID in cached stats")?;
+        let oid = git2::Oid::from_str(&stats.oid).context("Invalid OID in cached stats")?;
 
         // Store in memory cache
         self.memory_cache.insert(oid, stats.clone());
@@ -92,7 +93,7 @@ impl CommitStatsCache {
     /// Clear all cached data
     pub fn clear(&mut self) -> Result<()> {
         self.memory_cache.clear();
-        
+
         if self.config.cache_dir.exists() {
             fs::remove_dir_all(&self.config.cache_dir)?;
             fs::create_dir_all(&self.config.cache_dir)?;
@@ -116,11 +117,10 @@ impl CommitStatsCache {
 
     fn load_from_disk(&self, oid: &Oid) -> Result<CachedCommitStats> {
         let cache_file = self.get_cache_file_path(oid);
-        let data = fs::read_to_string(&cache_file)
-            .context("Failed to read cache file")?;
-        
-        let stats: CachedCommitStats = serde_json::from_str(&data)
-            .context("Failed to deserialize cache data")?;
+        let data = fs::read_to_string(&cache_file).context("Failed to read cache file")?;
+
+        let stats: CachedCommitStats =
+            serde_json::from_str(&data).context("Failed to deserialize cache data")?;
 
         Ok(stats)
     }
@@ -128,17 +128,15 @@ impl CommitStatsCache {
     fn save_to_disk(&self, stats: &CachedCommitStats) -> Result<()> {
         let oid = git2::Oid::from_str(&stats.oid)?;
         let cache_file = self.get_cache_file_path(&oid);
-        
+
         // Create parent directory if it doesn't exist
         if let Some(parent) = cache_file.parent() {
             fs::create_dir_all(parent)?;
         }
 
-        let data = serde_json::to_string(stats)
-            .context("Failed to serialize cache data")?;
-        
-        fs::write(&cache_file, data)
-            .context("Failed to write cache file")?;
+        let data = serde_json::to_string(stats).context("Failed to serialize cache data")?;
+
+        fs::write(&cache_file, data).context("Failed to write cache file")?;
 
         Ok(())
     }
@@ -147,8 +145,9 @@ impl CommitStatsCache {
         let oid_str = oid.to_string();
         let prefix = &oid_str[0..2];
         let suffix = &oid_str[2..];
-        
-        self.config.cache_dir
+
+        self.config
+            .cache_dir
             .join(prefix)
             .join(format!("{}.json", suffix))
     }
@@ -161,7 +160,9 @@ impl CommitStatsCache {
         walkdir::WalkDir::new(&self.config.cache_dir)
             .into_iter()
             .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_file() && e.path().extension().is_some_and(|ext| ext == "json"))
+            .filter(|e| {
+                e.file_type().is_file() && e.path().extension().is_some_and(|ext| ext == "json")
+            })
             .count()
     }
 
@@ -181,6 +182,7 @@ impl CommitStatsCache {
 }
 
 /// Cache statistics
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct CacheStats {
     pub memory_entries: usize,
@@ -198,10 +200,11 @@ pub fn get_default_cache_dir() -> PathBuf {
 }
 
 /// Generate cache key from repository path and configuration
-pub fn generate_cache_key(repo_path: &str, config_hash: &str) -> String {
+#[allow(dead_code)]
+pub fn generate_cache_key(repo_path: &str, config_hash: u64) -> String {
     let mut hasher = Sha256::new();
     hasher.update(repo_path.as_bytes());
-    hasher.update(config_hash.as_bytes());
+    hasher.update(config_hash.to_le_bytes());
     format!("{:x}", hasher.finalize())
 }
 
@@ -229,7 +232,7 @@ mod tests {
 
         let mut cache = CommitStatsCache::new(config)?;
         let oid = git2::Oid::from_str("1234567890abcdef1234567890abcdef12345678")?;
-        
+
         let stats = CachedCommitStats {
             oid: oid.to_string(),
             timestamp: 1234567890,
@@ -239,10 +242,10 @@ mod tests {
         };
 
         cache.put(stats.clone())?;
-        
+
         let retrieved = cache.get(&oid);
         assert!(retrieved.is_some());
-        
+
         let retrieved_stats = retrieved.unwrap();
         assert_eq!(retrieved_stats.oid, stats.oid);
         assert_eq!(retrieved_stats.additions, stats.additions);
@@ -261,7 +264,7 @@ mod tests {
 
         let mut cache = CommitStatsCache::new(config)?;
         let oid = git2::Oid::from_str("1234567890abcdef1234567890abcdef12345678")?;
-        
+
         let stats = CachedCommitStats {
             oid: oid.to_string(),
             timestamp: 1234567890,
@@ -288,7 +291,7 @@ mod tests {
 
         let cache = CommitStatsCache::new(config)?;
         let stats = cache.stats();
-        
+
         assert!(stats.enabled);
         assert_eq!(stats.memory_entries, 0);
         assert_eq!(stats.disk_entries, 0);
@@ -299,16 +302,16 @@ mod tests {
 
     #[test]
     fn test_generate_cache_key() {
-        let key1 = generate_cache_key("/path/to/repo1", "config1");
-        let key2 = generate_cache_key("/path/to/repo2", "config1");
-        let key3 = generate_cache_key("/path/to/repo1", "config2");
-        
+        let key1 = generate_cache_key("/path/to/repo1", 12345);
+        let key2 = generate_cache_key("/path/to/repo2", 12345);
+        let key3 = generate_cache_key("/path/to/repo1", 54321);
+
         assert_ne!(key1, key2);
         assert_ne!(key1, key3);
         assert_ne!(key2, key3);
-        
+
         // Same inputs should produce same key
-        let key1_again = generate_cache_key("/path/to/repo1", "config1");
+        let key1_again = generate_cache_key("/path/to/repo1", 12345);
         assert_eq!(key1, key1_again);
     }
 }

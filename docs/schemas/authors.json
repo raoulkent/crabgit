@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gitcrab.dev/schemas/authors.json",
+  "title": "Authors Analysis Output",
+  "description": "GitCrab author statistics and contributions analysis",
+  "type": "object",
+  "required": ["context", "metric", "top", "authors"],
+  "properties": {
+    "context": {
+      "$ref": "repo-activity.json#/$defs/StatsContext"
+    },
+    "metric": {
+      "type": "string",
+      "enum": ["Commits", "Churn"],
+      "description": "Ranking metric - commits count or code churn"
+    },
+    "top": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of top authors included"
+    },
+    "authors": {
+      "type": "array",
+      "description": "Ranked list of author statistics",
+      "items": {
+        "$ref": "#/$defs/AuthorStats"
+      }
+    }
+  },
+  "$defs": {
+    "AuthorStats": {
+      "type": "object",
+      "required": ["author", "commits", "adds", "dels"],
+      "properties": {
+        "author": {
+          "type": "string",
+          "description": "Author name (from Git commits)"
+        },
+        "commits": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of commits by this author"
+        },
+        "adds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total lines of code added"
+        },
+        "dels": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total lines of code deleted"
+        }
+      }
+    }
+  },
+  "example": {
+    "context": {
+      "repo_path": "/home/user/my-project",
+      "since": "180d",
+      "until": null,
+      "bucket": "Week",
+      "no_merges": true
+    },
+    "metric": "Commits",
+    "top": 5,
+    "authors": [
+      {
+        "author": "Alice Developer",
+        "commits": 127,
+        "adds": 15420,
+        "dels": 8230
+      },
+      {
+        "author": "Bob Contributor",
+        "commits": 89,
+        "adds": 12100,
+        "dels": 5670
+      },
+      {
+        "author": "Charlie Reviewer",
+        "commits": 56,
+        "adds": 8900,
+        "dels": 4320
+      },
+      {
+        "author": "Diana Engineer",
+        "commits": 43,
+        "adds": 6750,
+        "dels": 2890
+      },
+      {
+        "author": "Eve Maintainer",
+        "commits": 38,
+        "adds": 4560,
+        "dels": 3210
+      }
+    ]
+  }
+}
