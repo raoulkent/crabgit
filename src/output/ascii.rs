@@ -82,10 +82,48 @@ pub fn print_hotspots_bars(hs: &[crate::stats::hotspots::FileHotspot]) -> Result
     Ok(())
 }
 
+pub fn print_branches_bars(stats: &crate::stats::branches::BranchStats) -> Result<()> {
+    if stats.branches.is_empty() { println!("(no data)"); return Ok(()); }
+    
+    println!("🦀 Branch activity (base: {})", stats.base_branch);
+    println!("==============================\n");
+    
+    let max_commits = stats.branches.iter().map(|b| b.commits).max().unwrap_or(1);
+    
+    for branch in &stats.branches {
+        let ratio = branch.commits as f64 / max_commits as f64;
+        let width = (ratio * 30.0).round() as usize;
+        let bar = "█".repeat(width);
+        
+        let ahead_behind = if branch.ahead > 0 || branch.behind > 0 {
+            format!(" (+{} -{}) ", branch.ahead, branch.behind)
+        } else {
+            String::from(" ")
+        };
+        
+        println!(
+            "{:>6} | {:<20}{} {}", 
+            branch.commits, 
+            truncate_branch_name(&branch.name, 20),
+            ahead_behind,
+            bar
+        );
+    }
+    Ok(())
+}
+
 fn truncate_path(s: &str, max: usize) -> String {
     if s.len() <= max { return s.to_string(); }
     let mut out = String::with_capacity(max);
     out.push('…');
     out.push_str(&s[s.len().saturating_sub(max-1)..]);
+    out
+}
+
+fn truncate_branch_name(s: &str, max: usize) -> String {
+    if s.len() <= max { return s.to_string(); }
+    let mut out = String::with_capacity(max);
+    out.push_str(&s[..max.saturating_sub(1)]);
+    out.push('…');
     out
 }

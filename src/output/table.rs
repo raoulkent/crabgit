@@ -84,3 +84,25 @@ pub fn print_hotspots_table(hs: &[crate::stats::hotspots::FileHotspot], half_lif
     }
     Ok(())
 }
+
+pub fn print_branches_table(stats: &crate::stats::branches::BranchStats) -> Result<()> {
+    println!("🦀 Branch metrics (base: {})", stats.base_branch);
+    println!("===============================\n");
+    println!(" branch                      type    ahead behind commits    adds    dels merge%");
+    println!(" -------------------------- ------ ------ ------ ------- ------- ------- ------");
+    for branch in &stats.branches {
+        let merge_pct = (branch.merge_ratio * 100.0).round() as u32;
+        println!(
+            " {:<26} {:>6} {:>6} {:>6} {:>7} {:>7} {:>7} {:>5}%",
+            branch.name,
+            branch.branch_type,
+            branch.ahead,
+            branch.behind,
+            branch.commits,
+            branch.churn_adds,
+            branch.churn_dels,
+            merge_pct
+        );
+    }
+    Ok(())
+}

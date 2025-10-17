@@ -75,6 +75,8 @@ enum StatsCommand {
     Calendar(CalendarArgs),
     /// File hotspots (churn with recency decay)
     Hotspots(HotspotsArgs),
+    /// Branch metrics (ahead/behind, activity, merge ratio)
+    Branches(BranchesArgs),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -167,6 +169,25 @@ struct HotspotsArgs {
     format: stats::OutputFormat,
 }
 
+#[derive(Args, Debug, Clone)]
+struct BranchesArgs {
+    /// Start of time window
+    #[arg(long)]
+    since: Option<String>,
+    /// End of time window
+    #[arg(long)]
+    until: Option<String>,
+    /// Base branch for comparison (defaults to origin/main or origin/master)
+    #[arg(long)]
+    base: Option<String>,
+    /// Exclude merge commits
+    #[arg(long, default_value_t = false)]
+    no_merges: bool,
+    /// Output format
+    #[arg(long, value_enum, default_value = "table")]
+    format: stats::OutputFormat,
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -240,6 +261,21 @@ fn main() -> Result<()> {
                     no_merges: args.no_merges,
                 };
                 output::render_hotspots(&repo, &ctx, args.include.as_deref(), args.exclude.as_deref(), args.half_life_days, args.top, args.format)?;
+            }
+            Some(StatsCommand::Branches(args)) => {
+                let repo_display = if let Some(p) = repo.workdir() {
+                    p.display().to_string()
+                } else if let Some(parent) = repo.path().parent() {
+                    parent.display().to_string()
+                } else { String::from(".") };
+                let ctx = stats::StatsContext {
+                    repo_path: repo_display,
+                    since: args.since.clone(),
+                    until: args.until.clone(),
+                    bucket: stats::Bucket::Week,
+                    no_merges: args.no_merges,
+                };
+                output::render_branches(&repo, &ctx, args.base.as_deref(), args.format)?;
             }
             None => show_stats(&repo)?,
         },
