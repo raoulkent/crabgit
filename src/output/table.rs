@@ -106,3 +106,34 @@ pub fn print_branches_table(stats: &crate::stats::branches::BranchStats) -> Resu
     }
     Ok(())
 }
+
+pub fn print_coupling_table(stats: &crate::stats::coupling::CouplingStats, min_support: f64) -> Result<()> {
+    println!("🦀 File coupling analysis (min support: {:.3})", min_support);
+    println!("=============================================\n");
+    println!("Analyzed {} files across {} commits\n", stats.files_analyzed, stats.total_commits);
+    println!(" co-chg support   conf    lift  file_a → file_b");
+    println!(" ------ ------- ------- ------- --------------------------------");
+    for pair in &stats.pairs {
+        println!(
+            " {:>6} {:>7.3} {:>7.3} {:>7.2} {} → {}",
+            pair.co_changes,
+            pair.support,
+            pair.confidence_a_to_b,
+            pair.lift,
+            truncate_path(&pair.file_a, 15),
+            truncate_path(&pair.file_b, 15)
+        );
+    }
+    if stats.pairs.is_empty() {
+        println!("No file pairs found above minimum support threshold.");
+    }
+    Ok(())
+}
+
+fn truncate_path(path: &str, max_len: usize) -> String {
+    if path.len() <= max_len {
+        path.to_string()
+    } else {
+        format!("…{}", &path[path.len().saturating_sub(max_len - 1)..])
+    }
+}
