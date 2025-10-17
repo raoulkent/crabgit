@@ -205,7 +205,7 @@ fn test_parallel_processing() -> Result<()> {
     // Test with parallel enabled
     let parallel_config = ParallelConfig {
         enabled: true,
-        max_threads: 2,
+        max_threads: 0, // Use default to avoid thread pool reinitialization
         chunk_size: 100,
     };
     
@@ -257,7 +257,7 @@ fn test_batch_processing() {
     
     let config = ParallelConfig {
         enabled: true,
-        max_threads: 2,
+        max_threads: 0, // Use default to avoid thread pool reinitialization
         chunk_size: 100,
     };
     
