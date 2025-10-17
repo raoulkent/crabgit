@@ -79,6 +79,8 @@ enum StatsCommand {
     Branches(BranchesArgs),
     /// File coupling (co-change analysis)
     Coupling(CouplingArgs),
+    /// Code ownership and bus factor analysis
+    Ownership(OwnershipArgs),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -215,6 +217,31 @@ struct CouplingArgs {
     format: stats::OutputFormat,
 }
 
+#[derive(Args, Debug, Clone)]
+struct OwnershipArgs {
+    /// Start of time window (only applies to fast mode)
+    #[arg(long)]
+    since: Option<String>,
+    /// End of time window (only applies to fast mode)
+    #[arg(long)]
+    until: Option<String>,
+    /// Top N files to analyze
+    #[arg(long, default_value_t = 25)]
+    top: usize,
+    /// Include file pattern (e.g., '*.rs')
+    #[arg(long)]
+    include: Option<String>,
+    /// Exclude file pattern (e.g., 'target/*')
+    #[arg(long)]
+    exclude: Option<String>,
+    /// Use expensive blame analysis (opt-in) instead of fast last-modified approximation
+    #[arg(long, default_value_t = false)]
+    expensive: bool,
+    /// Output format
+    #[arg(long, value_enum, default_value = "table")]
+    format: stats::OutputFormat,
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -318,6 +345,21 @@ fn main() -> Result<()> {
                     no_merges: args.no_merges,
                 };
                 output::render_coupling(&repo, &ctx, args.top, args.min_support, args.window_size, args.format)?;
+            }
+            Some(StatsCommand::Ownership(args)) => {
+                let repo_display = if let Some(p) = repo.workdir() {
+                    p.display().to_string()
+                } else if let Some(parent) = repo.path().parent() {
+                    parent.display().to_string()
+                } else { String::from(".") };
+                let ctx = stats::StatsContext {
+                    repo_path: repo_display,
+                    since: args.since.clone(),
+                    until: args.until.clone(),
+                    bucket: stats::Bucket::Week,
+                    no_merges: false, // Not relevant for ownership analysis
+                };
+                output::render_ownership(&repo, &ctx, args.top, args.include.as_deref(), args.exclude.as_deref(), args.expensive, args.format)?;
             }
             None => show_stats(&repo)?,
         },

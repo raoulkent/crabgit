@@ -158,3 +158,77 @@ fn truncate_file_path(s: &str, max: usize) -> String {
     if s.len() <= max { return s.to_string(); }
     format!("…{}", &s[s.len().saturating_sub(max - 1)..])
 }
+
+pub fn print_ownership_bars(stats: &crate::stats::ownership::OwnershipStats) -> Result<()> {
+    let mode_name = match stats.analysis_mode {
+        crate::stats::ownership::OwnershipMode::LastModified => "fast",
+        crate::stats::ownership::OwnershipMode::BlameAnalysis => "blame",
+    };
+    
+    println!("🦀 Code ownership ({} analysis)", mode_name);
+    println!("==================================\n");
+    
+    // Bus factor visualization
+    let bus_factor_width = ((stats.bus_factor.score / 4.0) * 20.0).round() as usize;
+    let risk_bar = match stats.bus_factor.score as u32 {
+        1 => "█".repeat(bus_factor_width), // Red equivalent
+        2 => "░".repeat(bus_factor_width), // Orange equivalent
+        3 => "▒".repeat(bus_factor_width), // Yellow equivalent
+        _ => "▓".repeat(bus_factor_width), // Green equivalent
+    };
+    
+    println!("Bus Factor: {:.1} {}", stats.bus_factor.score, risk_bar);
+    println!("{}", stats.bus_factor.description);
+    println!();
+    
+    // Overall ownership bars
+    if !stats.overall_ownership.is_empty() {
+        println!("Overall Ownership:");
+        let max_percentage = stats.overall_ownership.iter()
+            .map(|a| a.ownership_percentage)
+            .fold(0.0, f64::max);
+            
+        for author in stats.overall_ownership.iter().take(8) {
+            let ratio = if max_percentage > 0.0 { 
+                author.ownership_percentage / max_percentage 
+            } else { 
+                0.0 
+            };
+            let width = (ratio * 25.0).round() as usize;
+            let bar = "█".repeat(width);
+            
+            println!(
+                "{:>5.1}% | {:<20} {}", 
+                author.ownership_percentage,
+                truncate_author(&author.author, 20),
+                bar
+            );
+        }
+        println!();
+    }
+    
+    // Top files ownership
+    if !stats.file_ownership.is_empty() {
+        println!("File Ownership (top 10):");
+        for (i, file) in stats.file_ownership.iter().take(10).enumerate() {
+            let width = (file.ownership_percentage / 100.0 * 20.0).round() as usize;
+            let bar = "█".repeat(width);
+            
+            println!(
+                "{:>2}. {:>3.0}% | {:<15} {}", 
+                i + 1,
+                file.ownership_percentage,
+                truncate_file_path(&file.path, 15),
+                bar
+            );
+        }
+    }
+    
+    println!("\nAnalyzed {} of {} files", stats.files_analyzed, stats.total_files_in_repo);
+    Ok(())
+}
+
+fn truncate_author(s: &str, max: usize) -> String {
+    if s.len() <= max { return s.to_string(); }
+    format!("{}…", &s[..max.saturating_sub(1)])
+}

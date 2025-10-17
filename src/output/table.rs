@@ -137,3 +137,56 @@ fn truncate_path(path: &str, max_len: usize) -> String {
         format!("…{}", &path[path.len().saturating_sub(max_len - 1)..])
     }
 }
+
+pub fn print_ownership_table(stats: &crate::stats::ownership::OwnershipStats) -> Result<()> {
+    let mode_name = match stats.analysis_mode {
+        crate::stats::ownership::OwnershipMode::LastModified => "fast (last-modified approximation)",
+        crate::stats::ownership::OwnershipMode::BlameAnalysis => "expensive (blame analysis)",
+    };
+    
+    println!("🦀 Code ownership analysis ({})", mode_name);
+    println!("============================================\n");
+    
+    // Bus factor summary
+    println!("Bus Factor: {:.1} ({})", stats.bus_factor.score, stats.bus_factor.description);
+    println!("Top 3 contributors own {:.1}% of codebase", stats.bus_factor.top_contributors_coverage);
+    println!("Critical files (>80% single ownership): {}\n", stats.bus_factor.critical_files);
+    
+    // Overall ownership
+    println!("Overall Ownership:");
+    println!(" author                  files  lines   ownership%");
+    println!(" ---------------------- ------ ------- ----------");
+    for author in stats.overall_ownership.iter().take(10) {
+        println!(
+            " {:<22} {:>6} {:>7} {:>9.1}%",
+            truncate_author_name(&author.author, 22),
+            author.files_owned,
+            author.total_lines_owned,
+            author.ownership_percentage
+        );
+    }
+    
+    // Top files by ownership
+    println!("\nTop Files by Ownership:");
+    println!(" owner                   own%  path");
+    println!(" ---------------------- ----- ----------------------------------------");
+    for file in stats.file_ownership.iter().take(15) {
+        println!(
+            " {:<22} {:>4.0}% {}",
+            truncate_author_name(&file.primary_owner, 22),
+            file.ownership_percentage,
+            truncate_path(&file.path, 40)
+        );
+    }
+    
+    println!("\nAnalyzed {} of {} files total", stats.files_analyzed, stats.total_files_in_repo);
+    Ok(())
+}
+
+fn truncate_author_name(name: &str, max_len: usize) -> String {
+    if name.len() <= max_len {
+        name.to_string()
+    } else {
+        format!("{}…", &name[..max_len.saturating_sub(1)])
+    }
+}

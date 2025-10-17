@@ -8,6 +8,7 @@ pub mod calendar;
 pub mod hotspots;
 pub mod branches;
 pub mod coupling;
+pub mod ownership;
 
 #[derive(Copy, Clone, Debug, Serialize, ValueEnum)]
 pub enum Bucket {
