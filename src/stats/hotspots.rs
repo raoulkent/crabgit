@@ -39,15 +39,29 @@ pub fn compute_hotspots(
     let mut by_file: HashMap<String, (u64, u64, f64)> = HashMap::new(); // adds, dels, weighted
 
     let reference_ts = until_ts.unwrap_or_else(|| OffsetDateTime::now_utc().unix_timestamp());
-    let hl = if half_life_days > 0.0 { half_life_days } else { 90.0 };
+    let hl = if half_life_days > 0.0 {
+        half_life_days
+    } else {
+        90.0
+    };
 
     for oid in revwalk {
         let oid = oid?;
         let commit = repo.find_commit(oid)?;
-        if ctx.no_merges && commit.parent_count() > 1 { continue; }
+        if ctx.no_merges && commit.parent_count() > 1 {
+            continue;
+        }
         let ts = commit.time().seconds();
-        if let Some(since) = since_ts && ts < since { continue; }
-        if let Some(until) = until_ts && ts > until { continue; }
+        if let Some(since) = since_ts
+            && ts < since
+        {
+            continue;
+        }
+        if let Some(until) = until_ts
+            && ts > until
+        {
+            continue;
+        }
 
         let parent_tree_opt: Option<Tree> = if commit.parent_count() == 0 {
             None
@@ -57,7 +71,8 @@ pub fn compute_hotspots(
         let tree = commit.tree()?;
 
         let mut opts = DiffOptions::new();
-        let diff = repo.diff_tree_to_tree(parent_tree_opt.as_ref(), Some(&tree), Some(&mut opts))?;
+        let diff =
+            repo.diff_tree_to_tree(parent_tree_opt.as_ref(), Some(&tree), Some(&mut opts))?;
 
         // Recency weight
         let age_days = ((reference_ts - ts) as f64) / 86_400.0;
@@ -100,13 +115,13 @@ pub fn compute_hotspots(
         .collect();
 
     // Sort by weighted churn desc, then raw churn
-    out.sort_by(|a, b| b
-        .weighted
-        .partial_cmp(&a.weighted)
-        .unwrap_or(std::cmp::Ordering::Equal)
-        .then_with(|| b.churn.cmp(&a.churn))
-        .then_with(|| a.path.cmp(&b.path))
-    );
+    out.sort_by(|a, b| {
+        b.weighted
+            .partial_cmp(&a.weighted)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| b.churn.cmp(&a.churn))
+            .then_with(|| a.path.cmp(&b.path))
+    });
 
     Ok(out)
 }
@@ -122,7 +137,13 @@ fn build_globset(pattern: Option<&str>) -> Result<Option<GlobSet>> {
 
 fn matches_globsets(path: &str, include: Option<&GlobSet>, exclude: Option<&GlobSet>) -> bool {
     let p = Path::new(path);
-    if let Some(ex) = exclude && ex.is_match(p) { return false; }
-    if let Some(inc) = include { return inc.is_match(p); }
+    if let Some(ex) = exclude
+        && ex.is_match(p)
+    {
+        return false;
+    }
+    if let Some(inc) = include {
+        return inc.is_match(p);
+    }
     true
 }

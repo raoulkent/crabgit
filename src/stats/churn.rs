@@ -28,8 +28,16 @@ pub fn compute_churn(repo: &Repository, ctx: &StatsContext) -> Result<Vec<ChurnP
         let oid = oid?;
         let commit = repo.find_commit(oid)?;
         let ts = commit.time().seconds();
-        if let Some(since) = since_ts && ts < since { continue; }
-        if let Some(until) = until_ts && ts > until { continue; }
+        if let Some(since) = since_ts
+            && ts < since
+        {
+            continue;
+        }
+        if let Some(until) = until_ts
+            && ts > until
+        {
+            continue;
+        }
 
         let parents = commit.parent_count();
         if parents == 0 {
@@ -56,7 +64,11 @@ pub fn compute_churn(repo: &Repository, ctx: &StatsContext) -> Result<Vec<ChurnP
 
     Ok(buckets
         .into_iter()
-        .map(|(k, (a, d))| ChurnPoint { bucket_start: k, adds: a, dels: d })
+        .map(|(k, (a, d))| ChurnPoint {
+            bucket_start: k,
+            adds: a,
+            dels: d,
+        })
         .collect())
 }
 
@@ -68,7 +80,11 @@ fn diff_trees(repo: &Repository, a: Option<&Tree>, b: Option<&Tree>) -> Result<(
     Ok((stats.insertions() as u64, stats.deletions() as u64))
 }
 
-pub fn diff_trees_public(repo: &Repository, a: Option<&Tree>, b: Option<&Tree>) -> Result<(u64, u64)> {
+pub fn diff_trees_public(
+    repo: &Repository,
+    a: Option<&Tree>,
+    b: Option<&Tree>,
+) -> Result<(u64, u64)> {
     diff_trees(repo, a, b)
 }
 

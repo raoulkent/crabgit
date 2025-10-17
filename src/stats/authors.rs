@@ -29,8 +29,16 @@ pub fn compute_authors(repo: &Repository, ctx: &StatsContext) -> Result<Vec<Auth
         let oid = oid?;
         let commit = repo.find_commit(oid)?;
         let ts = commit.time().seconds();
-        if let Some(since) = since_ts && ts < since { continue; }
-        if let Some(until) = until_ts && ts > until { continue; }
+        if let Some(since) = since_ts
+            && ts < since
+        {
+            continue;
+        }
+        if let Some(until) = until_ts
+            && ts > until
+        {
+            continue;
+        }
 
         // Skip merges if requested
         if ctx.no_merges && commit.parent_count() > 1 {
@@ -38,7 +46,12 @@ pub fn compute_authors(repo: &Repository, ctx: &StatsContext) -> Result<Vec<Auth
         }
 
         let author = commit.author().name().unwrap_or("Unknown").to_string();
-        let entry = by_author.entry(author.clone()).or_insert(AuthorStats { author, commits: 0, adds: 0, dels: 0 });
+        let entry = by_author.entry(author.clone()).or_insert(AuthorStats {
+            author,
+            commits: 0,
+            adds: 0,
+            dels: 0,
+        });
         entry.commits += 1;
 
         // Churn via diff to first parent (or empty tree for root)
@@ -57,6 +70,10 @@ pub fn compute_authors(repo: &Repository, ctx: &StatsContext) -> Result<Vec<Auth
 
     let mut v: Vec<AuthorStats> = by_author.into_values().collect();
     // sort by commits desc as default; callers can re-sort
-    v.sort_by(|a, b| b.commits.cmp(&a.commits).then_with(|| (b.adds + b.dels).cmp(&(a.adds + a.dels))));
+    v.sort_by(|a, b| {
+        b.commits
+            .cmp(&a.commits)
+            .then_with(|| (b.adds + b.dels).cmp(&(a.adds + a.dels)))
+    });
     Ok(v)
 }
