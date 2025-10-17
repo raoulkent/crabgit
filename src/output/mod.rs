@@ -199,3 +199,57 @@ pub fn render_coupling(
         OutputFormat::Chart => ascii::print_coupling_edges(&stats),
     }
 }
+
+#[derive(serde::Serialize)]
+struct OwnershipOutput {
+    context: StatsContext,
+    top: usize,
+    include: Option<String>,
+    exclude: Option<String>,
+    expensive: bool,
+    ownership_stats: crate::stats::ownership::OwnershipStats,
+}
+
+pub fn render_ownership(
+    repo: &Repository,
+    ctx: &StatsContext,
+    top: usize,
+    include: Option<&str>,
+    exclude: Option<&str>,
+    expensive: bool,
+    fmt: OutputFormat,
+) -> Result<()> {
+    let stats = if expensive {
+        crate::stats::ownership::analyze_ownership_blame(
+            repo,
+            top,
+            include,
+            exclude,
+        )?
+    } else {
+        crate::stats::ownership::analyze_ownership_fast(
+            repo,
+            ctx.since.as_deref(),
+            ctx.until.as_deref(),
+            top,
+            include,
+            exclude,
+        )?
+    };
+    
+    match fmt {
+        OutputFormat::Json => {
+            let out = OwnershipOutput { 
+                context: ctx.clone(), 
+                top, 
+                include: include.map(|s| s.to_string()), 
+                exclude: exclude.map(|s| s.to_string()), 
+                expensive,
+                ownership_stats: stats 
+            };
+            json::print(&out)
+        }
+        OutputFormat::Table => table::print_ownership_table(&stats),
+        OutputFormat::Chart => ascii::print_ownership_bars(&stats),
+    }
+}
