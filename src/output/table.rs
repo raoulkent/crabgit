@@ -288,3 +288,84 @@ pub fn print_stability_table(stats: &crate::stats::stability::StabilityStats) ->
 
     Ok(())
 }
+
+pub fn print_releases_table(stats: &crate::stats::releases::ReleaseStats) -> anyhow::Result<()> {
+    println!("🦀 Releases and Tags Analysis");
+    println!("=============================\n");
+
+    // Summary
+    println!(
+        "Found {} releases over {} days",
+        stats.total_releases, stats.date_range_days
+    );
+    if stats.total_releases > 0 {
+        println!(
+            "Average: {:.1} commits/release, {:.1} lines/release, {:.1} days between releases",
+            stats.summary.avg_commits_per_release,
+            stats.summary.avg_churn_per_release,
+            stats.summary.avg_days_between_releases
+        );
+        if let Some(ref active) = stats.summary.most_active_release {
+            println!("Most active release: {}", active);
+        }
+        if let Some(ref churn) = stats.summary.largest_churn_release {
+            println!("Largest churn release: {}", churn);
+        }
+        println!();
+    }
+
+    if stats.releases.is_empty() {
+        println!("No releases found in this repository.");
+        return Ok(());
+    }
+
+    println!(
+        " tag                          type      date       commits  churn   days    tagger          "
+    );
+    println!(
+        " --------------------------- --------- ---------- -------- ------- ------- ----------------"
+    );
+
+    for release in &stats.releases {
+        let tag_type = match release.tag_type {
+            crate::stats::releases::TagType::Annotated => "annotated",
+            crate::stats::releases::TagType::Lightweight => "light",
+        };
+
+        let date = if release.date > 0 {
+            let dt = time::OffsetDateTime::from_unix_timestamp(release.date)
+                .unwrap_or(time::OffsetDateTime::UNIX_EPOCH);
+            dt.date().to_string()
+        } else {
+            "-".to_string()
+        };
+
+        let tagger = release.tagger.as_deref().unwrap_or("-");
+        let truncated_tagger = if tagger.len() > 16 {
+            format!("{}…", &tagger[..15])
+        } else {
+            tagger.to_string()
+        };
+
+        println!(
+            " {:<27} {:>9} {:>10} {:>8} {:>7} {:>7} {}",
+            truncate_path(&release.name, 27),
+            tag_type,
+            date,
+            release.commits_since_previous,
+            release.churn_total,
+            if release.days_since_previous > 0 {
+                release.days_since_previous.to_string()
+            } else {
+                "-".to_string()
+            },
+            truncated_tagger
+        );
+    }
+
+    println!(
+        "\nNote: commits and churn show changes since previous release. 'days' shows time since previous release."
+    );
+
+    Ok(())
+}

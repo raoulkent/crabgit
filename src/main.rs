@@ -83,6 +83,8 @@ enum StatsCommand {
     Ownership(OwnershipArgs),
     /// Change stability analysis for files and authors
     Stability(StabilityArgs),
+    /// Tags/releases metrics and analysis
+    Releases(ReleasesArgs),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -269,6 +271,16 @@ struct StabilityArgs {
     format: stats::OutputFormat,
 }
 
+#[derive(Args, Debug, Clone)]
+struct ReleasesArgs {
+    /// Number of releases to analyze (defaults to all)
+    #[arg(long, short = 'n')]
+    limit: Option<usize>,
+    /// Output format
+    #[arg(long, value_enum, default_value = "table")]
+    format: stats::OutputFormat,
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -446,6 +458,9 @@ fn main() -> Result<()> {
                     args.top,
                     args.format,
                 )?;
+            }
+            Some(StatsCommand::Releases(args)) => {
+                output::render_releases(&repo, args.limit, args.format)?;
             }
             None => show_stats(&repo)?,
         },
@@ -895,13 +910,13 @@ mod tests {
         let result = show_log(&repo, 5);
         assert!(result.is_ok(), "show_log should succeed");
     }
-    
+
     #[test]
     fn test_stability_analysis() {
         // Test that stability analysis doesn't panic on current repository
         let repo_path = env::current_dir().expect("Failed to get current directory");
         let repo = Repository::open(&repo_path).expect("Failed to open repository");
-        
+
         let ctx = stats::StatsContext {
             repo_path: repo_path.display().to_string(),
             since: Some("30d".to_string()),
@@ -909,12 +924,18 @@ mod tests {
             bucket: stats::Bucket::Week,
             no_merges: true,
         };
-        
+
         let result = stats::stability::analyze_stability(&repo, &ctx, None, None, 10);
         assert!(result.is_ok(), "stability analysis should succeed");
-        
+
         let stats = result.unwrap();
-        assert!(stats.total_files_analyzed <= 100, "should analyze reasonable number of files");
-        assert_eq!(stats.date_range_days, 365, "default date range should be 365 days");
+        assert!(
+            stats.total_files_analyzed <= 100,
+            "should analyze reasonable number of files"
+        );
+        assert_eq!(
+            stats.date_range_days, 365,
+            "default date range should be 365 days"
+        );
     }
 }

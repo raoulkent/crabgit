@@ -360,3 +360,90 @@ pub fn print_stability_bars(stats: &crate::stats::stability::StabilityStats) -> 
     println!("\nLegend: r=reverts, f=fixes. Higher scores = less stable files.");
     Ok(())
 }
+
+pub fn print_releases_bars(stats: &crate::stats::releases::ReleaseStats) -> anyhow::Result<()> {
+    println!("🦀 Releases and Tags Analysis");
+    println!("=============================\n");
+
+    if stats.total_releases > 0 {
+        println!(
+            "Found {} releases over {} days",
+            stats.total_releases, stats.date_range_days
+        );
+        if let Some(ref active) = stats.summary.most_active_release {
+            println!("Most active: {}", active);
+        }
+        println!();
+    }
+
+    if stats.releases.is_empty() {
+        println!("(no releases found)");
+        return Ok(());
+    }
+
+    // Create bars showing commits per release
+    println!("Commits per Release (since previous):");
+    let max_commits = stats
+        .releases
+        .iter()
+        .map(|r| r.commits_since_previous)
+        .max()
+        .unwrap_or(1);
+
+    for release in &stats.releases {
+        let ratio = release.commits_since_previous as f64 / max_commits as f64;
+        let width = (ratio * 30.0).round() as usize;
+        let bar = "█".repeat(width);
+
+        let tag_type_symbol = match release.tag_type {
+            crate::stats::releases::TagType::Annotated => "A",
+            crate::stats::releases::TagType::Lightweight => "L",
+        };
+
+        println!(
+            "{:>6} | {:<20} {} {} ({})",
+            release.commits_since_previous,
+            truncate_release_name(&release.name, 20),
+            tag_type_symbol,
+            bar,
+            if release.days_since_previous > 0 {
+                format!("{}d", release.days_since_previous)
+            } else {
+                "-".to_string()
+            }
+        );
+    }
+
+    // Create bars showing churn per release
+    println!("\nChurn per Release (lines changed):");
+    let max_churn = stats
+        .releases
+        .iter()
+        .map(|r| r.churn_total)
+        .max()
+        .unwrap_or(1);
+
+    for release in &stats.releases {
+        let ratio = release.churn_total as f64 / max_churn as f64;
+        let width = (ratio * 30.0).round() as usize;
+        let bar = "█".repeat(width);
+
+        println!(
+            "{:>6} | {:<20} {}",
+            release.churn_total,
+            truncate_release_name(&release.name, 20),
+            bar
+        );
+    }
+
+    println!("\nLegend: A=Annotated tag, L=Lightweight tag, d=days since previous release");
+
+    Ok(())
+}
+
+fn truncate_release_name(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        return s.to_string();
+    }
+    format!("{}…", &s[..max.saturating_sub(1)])
+}

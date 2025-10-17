@@ -91,12 +91,12 @@ mod tests {
             adds: 1500,
             dels: 750,
         };
-        
+
         assert_eq!(stats.author, "Alice Developer");
         assert_eq!(stats.commits, 42);
         assert_eq!(stats.adds, 1500);
         assert_eq!(stats.dels, 750);
-        
+
         // Test total churn calculation
         let total_churn = stats.adds + stats.dels;
         assert_eq!(total_churn, 2250);
@@ -110,13 +110,16 @@ mod tests {
             adds: 500,
             dels: 200,
         };
-        
+
         // Test JSON serialization
         let json_result = serde_json::to_string(&stats);
         assert!(json_result.is_ok(), "AuthorStats should serialize to JSON");
-        
+
         let json_str = json_result.unwrap();
-        assert!(json_str.contains("Bob Contributor"), "JSON should contain author name");
+        assert!(
+            json_str.contains("Bob Contributor"),
+            "JSON should contain author name"
+        );
         assert!(json_str.contains("15"), "JSON should contain commits count");
         assert!(json_str.contains("500"), "JSON should contain adds count");
         assert!(json_str.contains("200"), "JSON should contain dels count");
@@ -131,11 +134,11 @@ mod tests {
             adds: 0,
             dels: 0,
         };
-        
+
         assert_eq!(stats.commits, 0);
         assert_eq!(stats.adds, 0);
         assert_eq!(stats.dels, 0);
-        
+
         // Zero values should serialize correctly
         let json_result = serde_json::to_string(&stats);
         assert!(json_result.is_ok());
@@ -150,14 +153,17 @@ mod tests {
             adds: u64::MAX / 2,
             dels: u64::MAX / 3,
         };
-        
+
         assert_eq!(stats.commits, u64::MAX / 1000);
         assert_eq!(stats.adds, u64::MAX / 2);
         assert_eq!(stats.dels, u64::MAX / 3);
-        
+
         // Large values should serialize without overflow
         let json_result = serde_json::to_string(&stats);
-        assert!(json_result.is_ok(), "Large values should serialize correctly");
+        assert!(
+            json_result.is_ok(),
+            "Large values should serialize correctly"
+        );
     }
 
     #[test]
@@ -169,30 +175,30 @@ mod tests {
             adds: 2000,
             dels: 500,
         };
-        
+
         let bob = AuthorStats {
             author: "Bob".to_string(),
             commits: 75,
             adds: 1500,
             dels: 300,
         };
-        
+
         let charlie = AuthorStats {
             author: "Charlie".to_string(),
             commits: 100, // same as Alice
-            adds: 1800,  // less than Alice
+            adds: 1800,   // less than Alice
             dels: 400,
         };
-        
+
         // Test comparisons
         assert!(alice.commits > bob.commits);
         assert_eq!(alice.commits, charlie.commits);
-        
+
         // Test total churn comparison
         let alice_churn = alice.adds + alice.dels;
         let bob_churn = bob.adds + bob.dels;
         let charlie_churn = charlie.adds + charlie.dels;
-        
+
         assert!(alice_churn > bob_churn);
         assert!(alice_churn > charlie_churn);
         assert!(charlie_churn > bob_churn);
@@ -207,15 +213,15 @@ mod tests {
             adds: 800,
             dels: 200,
         };
-        
+
         let cloned = original.clone();
-        
+
         // Verify all fields are cloned correctly
         assert_eq!(original.author, cloned.author);
         assert_eq!(original.commits, cloned.commits);
         assert_eq!(original.adds, cloned.adds);
         assert_eq!(original.dels, cloned.dels);
-        
+
         // Verify they are independent (modifying clone doesn't affect original)
         // Note: We can't test this directly with the current struct, but cloning works
     }
@@ -232,7 +238,7 @@ mod tests {
             "Name <email@domain.com>",
             "", // empty name
         ];
-        
+
         for name in test_cases {
             let stats = AuthorStats {
                 author: name.to_string(),
@@ -240,9 +246,9 @@ mod tests {
                 adds: 10,
                 dels: 5,
             };
-            
+
             assert_eq!(stats.author, name);
-            
+
             // Should serialize regardless of name format
             let json_result = serde_json::to_string(&stats);
             assert!(json_result.is_ok(), "Should serialize name: '{}'", name);
@@ -258,9 +264,9 @@ mod tests {
             adds: 100,
             dels: 25,
         };
-        
+
         let debug_str = format!("{:?}", stats);
-        
+
         // Debug output should contain key information
         assert!(debug_str.contains("Debug Test"));
         assert!(debug_str.contains("5"));
@@ -272,7 +278,7 @@ mod tests {
     #[test]
     fn test_author_stats_edge_cases() {
         // Test edge cases for author statistics
-        
+
         // Only commits, no churn
         let commits_only = AuthorStats {
             author: "Commits Only".to_string(),
@@ -281,7 +287,7 @@ mod tests {
             dels: 0,
         };
         assert_eq!(commits_only.adds + commits_only.dels, 0);
-        
+
         // Only deletions (cleanup author)
         let deletions_only = AuthorStats {
             author: "Cleanup Expert".to_string(),
@@ -291,7 +297,7 @@ mod tests {
         };
         assert_eq!(deletions_only.adds, 0);
         assert_eq!(deletions_only.dels, 1000);
-        
+
         // Only additions (new feature author)
         let additions_only = AuthorStats {
             author: "Feature Creator".to_string(),
@@ -306,22 +312,19 @@ mod tests {
     #[test]
     fn test_time_parsing_consistency() {
         // Ensure authors module uses consistent time parsing
-        let test_cases = vec![
-            "30d",
-            "2w",
-            "6m",
-            "1y",
-            "2023-01-15",
-            "2024-12-31",
-        ];
-        
+        let test_cases = vec!["30d", "2w", "6m", "1y", "2023-01-15", "2024-12-31"];
+
         for test_case in test_cases {
             let result = crate::stats::activity::parse_instant(Some(test_case));
-            
+
             // Should get consistent results (either Some or None)
             match result {
                 Some(timestamp) => {
-                    assert!(timestamp > 0, "Timestamp should be positive for: {}", test_case);
+                    assert!(
+                        timestamp > 0,
+                        "Timestamp should be positive for: {}",
+                        test_case
+                    );
                 }
                 None => {
                     // Some formats might not be supported, that's okay
