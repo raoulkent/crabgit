@@ -9,6 +9,7 @@ pub mod churn;
 pub mod coupling;
 pub mod hotspots;
 pub mod ownership;
+pub mod releases;
 pub mod stability;
 
 #[derive(Copy, Clone, Debug, Serialize, ValueEnum)]

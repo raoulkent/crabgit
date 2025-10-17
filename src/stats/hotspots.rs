@@ -162,13 +162,13 @@ mod tests {
             churn: 2250,
             weighted: 1800.5,
         };
-        
+
         assert_eq!(hotspot.path, "src/main.rs");
         assert_eq!(hotspot.adds, 1500);
         assert_eq!(hotspot.dels, 750);
         assert_eq!(hotspot.churn, 2250);
         assert_eq!(hotspot.weighted, 1800.5);
-        
+
         // Verify churn calculation consistency
         assert_eq!(hotspot.churn, hotspot.adds + hotspot.dels);
     }
@@ -182,13 +182,16 @@ mod tests {
             churn: 700,
             weighted: 642.3,
         };
-        
+
         // Test JSON serialization
         let json_result = serde_json::to_string(&hotspot);
         assert!(json_result.is_ok(), "FileHotspot should serialize to JSON");
-        
+
         let json_str = json_result.unwrap();
-        assert!(json_str.contains("lib/utils.rs"), "JSON should contain path");
+        assert!(
+            json_str.contains("lib/utils.rs"),
+            "JSON should contain path"
+        );
         assert!(json_str.contains("500"), "JSON should contain adds");
         assert!(json_str.contains("200"), "JSON should contain dels");
         assert!(json_str.contains("700"), "JSON should contain churn");
@@ -205,12 +208,12 @@ mod tests {
             churn: 0,
             weighted: 0.0,
         };
-        
+
         assert_eq!(hotspot.adds, 0);
         assert_eq!(hotspot.dels, 0);
         assert_eq!(hotspot.churn, 0);
         assert_eq!(hotspot.weighted, 0.0);
-        
+
         // Should serialize correctly
         let json_result = serde_json::to_string(&hotspot);
         assert!(json_result.is_ok());
@@ -226,32 +229,33 @@ mod tests {
             churn: u64::MAX / 3 + u64::MAX / 4,
             weighted: f64::MAX / 2.0,
         };
-        
+
         assert_eq!(hotspot.adds, u64::MAX / 3);
         assert_eq!(hotspot.dels, u64::MAX / 4);
         assert_eq!(hotspot.churn, u64::MAX / 3 + u64::MAX / 4);
         assert_eq!(hotspot.weighted, f64::MAX / 2.0);
-        
+
         // Should serialize without overflow
         let json_result = serde_json::to_string(&hotspot);
-        assert!(json_result.is_ok(), "Large values should serialize correctly");
+        assert!(
+            json_result.is_ok(),
+            "Large values should serialize correctly"
+        );
     }
 
     #[test]
     fn test_build_globset_valid_patterns() {
         // Test valid glob patterns
-        let test_cases = vec![
-            "*.rs",
-            "src/**/*.rs",
-            "lib/**",
-            "test_*.py",
-            "**/*.{js,ts}",
-        ];
-        
+        let test_cases = vec!["*.rs", "src/**/*.rs", "lib/**", "test_*.py", "**/*.{js,ts}"];
+
         for pattern in test_cases {
             let result = build_globset(Some(pattern));
-            assert!(result.is_ok(), "Should build globset for pattern: {}", pattern);
-            
+            assert!(
+                result.is_ok(),
+                "Should build globset for pattern: {}",
+                pattern
+            );
+
             if let Ok(Some(globset)) = result {
                 // Should be usable for matching
                 // We can't easily test matching without creating Path objects
@@ -268,42 +272,48 @@ mod tests {
         assert!(result.unwrap().is_none());
     }
 
-    #[test] 
+    #[test]
     fn test_matches_globsets_include_exclude() {
         // Test glob matching logic with various scenarios
         let include_rs = build_globset(Some("*.rs")).unwrap();
         let exclude_test = build_globset(Some("test_*")).unwrap();
-        
+
         // Test cases: (path, include_glob, exclude_glob, expected_result)
         let test_cases = vec![
-            ("main.rs", include_rs.as_ref(), None, true),           // matches include
-            ("lib.py", include_rs.as_ref(), None, false),          // doesn't match include
-            ("test_main.rs", include_rs.as_ref(), exclude_test.as_ref(), false), // matches exclude
-            ("main.rs", None, exclude_test.as_ref(), true),        // no include, doesn't match exclude
-            ("test_lib.py", None, exclude_test.as_ref(), false),   // no include, matches exclude
+            ("main.rs", include_rs.as_ref(), None, true), // matches include
+            ("lib.py", include_rs.as_ref(), None, false), // doesn't match include
+            (
+                "test_main.rs",
+                include_rs.as_ref(),
+                exclude_test.as_ref(),
+                false,
+            ), // matches exclude
+            ("main.rs", None, exclude_test.as_ref(), true), // no include, doesn't match exclude
+            ("test_lib.py", None, exclude_test.as_ref(), false), // no include, matches exclude
         ];
-        
+
         for (path, include, exclude, expected) in test_cases {
             let result = matches_globsets(path, include, exclude);
-            assert_eq!(result, expected, 
-                "Path '{}' should match: {}, got: {}", path, expected, result);
+            assert_eq!(
+                result, expected,
+                "Path '{}' should match: {}, got: {}",
+                path, expected, result
+            );
         }
     }
 
     #[test]
     fn test_matches_globsets_no_filters() {
         // Test with no include/exclude filters (should match all)
-        let paths = vec![
-            "main.rs",
-            "lib.py", 
-            "test.js",
-            "README.md",
-            "src/utils.rs",
-        ];
-        
+        let paths = vec!["main.rs", "lib.py", "test.js", "README.md", "src/utils.rs"];
+
         for path in paths {
             let result = matches_globsets(path, None, None);
-            assert!(result, "Path '{}' should match when no filters are applied", path);
+            assert!(
+                result,
+                "Path '{}' should match when no filters are applied",
+                path
+            );
         }
     }
 
@@ -317,9 +327,9 @@ mod tests {
             churn: 150,
             weighted: 125.7,
         };
-        
+
         let cloned = original.clone();
-        
+
         // Verify all fields are cloned correctly
         assert_eq!(original.path, cloned.path);
         assert_eq!(original.adds, cloned.adds);
@@ -338,9 +348,9 @@ mod tests {
             churn: 63,
             weighted: 58.5,
         };
-        
+
         let debug_str = format!("{:?}", hotspot);
-        
+
         // Debug output should contain key information
         assert!(debug_str.contains("debug_test.rs"));
         assert!(debug_str.contains("42"));
@@ -361,9 +371,9 @@ mod tests {
             "./current/file.js",
             "C:\\Windows\\System32\\file.dll", // Windows path
             "/usr/local/bin/script.sh",        // Unix absolute path
-            "unicode_测试_file.rs",             // Unicode filename
+            "unicode_测试_file.rs",            // Unicode filename
         ];
-        
+
         for path in path_cases {
             let hotspot = FileHotspot {
                 path: path.to_string(),
@@ -372,9 +382,9 @@ mod tests {
                 churn: 15,
                 weighted: 12.5,
             };
-            
+
             assert_eq!(hotspot.path, path);
-            
+
             // Should serialize regardless of path format
             let json_result = serde_json::to_string(&hotspot);
             assert!(json_result.is_ok(), "Should serialize path: '{}'", path);
@@ -386,22 +396,26 @@ mod tests {
         // Test recency weight calculation logic
         let half_life_days = 90.0;
         let reference_ts = 1640995200; // 2022-01-01 00:00:00 UTC
-        
+
         // Test age-based weight decay
         let test_cases = vec![
-            (reference_ts, 1.0),                              // current time = full weight
-            (reference_ts - 90 * 86_400, 0.5),               // 90 days ago = half weight
-            (reference_ts - 180 * 86_400, 0.25),             // 180 days ago = quarter weight
-            (reference_ts - 270 * 86_400, 0.125),            // 270 days ago = eighth weight
+            (reference_ts, 1.0),                  // current time = full weight
+            (reference_ts - 90 * 86_400, 0.5),    // 90 days ago = half weight
+            (reference_ts - 180 * 86_400, 0.25),  // 180 days ago = quarter weight
+            (reference_ts - 270 * 86_400, 0.125), // 270 days ago = eighth weight
         ];
-        
+
         for (commit_ts, expected_weight) in test_cases {
             let age_days = ((reference_ts - commit_ts) as f64) / 86_400.0;
             let weight = 0.5f64.powf(age_days / half_life_days);
-            
-            assert!((weight - expected_weight).abs() < 0.001, 
-                "Weight for age {} days should be approximately {}, got {}", 
-                age_days, expected_weight, weight);
+
+            assert!(
+                (weight - expected_weight).abs() < 0.001,
+                "Weight for age {} days should be approximately {}, got {}",
+                age_days,
+                expected_weight,
+                weight
+            );
         }
     }
 }

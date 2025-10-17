@@ -400,7 +400,10 @@ fn parse_time_spec(spec: &str) -> Result<i64> {
 
     // Handle absolute date formats (ISO 8601)
     // For now, return an error for unsupported formats
-    anyhow::bail!("Unsupported time format: {}. Use formats like '30d', '3m', '1y'", spec)
+    anyhow::bail!(
+        "Unsupported time format: {}. Use formats like '30d', '3m', '1y'",
+        spec
+    )
 }
 
 #[cfg(test)]
@@ -414,7 +417,7 @@ mod tests {
         assert!(is_revert_commit("revert: broken change"));
         assert!(is_revert_commit("This reverts commit abc123"));
         assert!(is_revert_commit("Rollback previous changes"));
-        
+
         assert!(!is_revert_commit("Add new feature"));
         assert!(!is_revert_commit("Fix bug in parser"));
         assert!(!is_revert_commit("Update documentation"));
@@ -429,7 +432,7 @@ mod tests {
         assert!(is_fix_commit("Patch for security vulnerability"));
         assert!(is_fix_commit("Urgent fix for crash"));
         assert!(is_fix_commit("Bug: null pointer exception"));
-        
+
         assert!(!is_fix_commit("Add new feature"));
         assert!(!is_fix_commit("Refactor code"));
         assert!(!is_fix_commit("Update documentation"));
@@ -443,16 +446,18 @@ mod tests {
         assert!(is_likely_binary_or_non_code("archive.zip"));
         assert!(is_likely_binary_or_non_code("app.exe"));
         assert!(is_likely_binary_or_non_code("library.dll"));
-        
+
         // Minified files
         assert!(is_likely_binary_or_non_code("app.min.js"));
         assert!(is_likely_binary_or_non_code("style.min.css"));
-        
+
         // Generated/vendor directories
-        assert!(is_likely_binary_or_non_code("node_modules/package/index.js"));
+        assert!(is_likely_binary_or_non_code(
+            "node_modules/package/index.js"
+        ));
         assert!(is_likely_binary_or_non_code("target/debug/app.exe"));
         assert!(is_likely_binary_or_non_code("vendor/library/src.rs"));
-        
+
         // Code files (should return false)
         assert!(!is_likely_binary_or_non_code("src/main.rs"));
         assert!(!is_likely_binary_or_non_code("app.js"));
@@ -467,27 +472,39 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64;
-        
+
         // Test days
         let result = parse_time_spec("7d").unwrap();
         let expected = now - (7 * 24 * 3600);
-        assert!((result - expected).abs() <= 1, "7d should parse to 7 days ago");
-        
+        assert!(
+            (result - expected).abs() <= 1,
+            "7d should parse to 7 days ago"
+        );
+
         // Test weeks
         let result = parse_time_spec("2w").unwrap();
         let expected = now - (2 * 7 * 24 * 3600);
-        assert!((result - expected).abs() <= 1, "2w should parse to 2 weeks ago");
-        
+        assert!(
+            (result - expected).abs() <= 1,
+            "2w should parse to 2 weeks ago"
+        );
+
         // Test months
         let result = parse_time_spec("3m").unwrap();
         let expected = now - (3 * 30 * 24 * 3600);
-        assert!((result - expected).abs() <= 1, "3m should parse to 3 months ago");
-        
+        assert!(
+            (result - expected).abs() <= 1,
+            "3m should parse to 3 months ago"
+        );
+
         // Test years
         let result = parse_time_spec("1y").unwrap();
         let expected = now - (365 * 24 * 3600);
-        assert!((result - expected).abs() <= 1, "1y should parse to 1 year ago");
-        
+        assert!(
+            (result - expected).abs() <= 1,
+            "1y should parse to 1 year ago"
+        );
+
         // Test invalid format
         assert!(parse_time_spec("invalid").is_err());
         assert!(parse_time_spec("30x").is_err());
@@ -504,14 +521,9 @@ mod tests {
             }],
             authors: HashSet::from(["Alice".to_string()]),
         };
-        
-        let result = calculate_file_stability(
-            "src/main.rs".to_string(),
-            file_info,
-            None,
-            None,
-        );
-        
+
+        let result = calculate_file_stability("src/main.rs".to_string(), file_info, None, None);
+
         assert_eq!(result.path, "src/main.rs");
         assert_eq!(result.changes, 1);
         assert_eq!(result.authors, 1);
@@ -530,7 +542,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64;
-        
+
         let file_info = FileChangeInfo {
             commits: vec![
                 CommitInfo {
@@ -554,14 +566,9 @@ mod tests {
             ],
             authors: HashSet::from(["Alice".to_string(), "Bob".to_string()]),
         };
-        
-        let result = calculate_file_stability(
-            "src/unstable.rs".to_string(),
-            file_info,
-            None,
-            None,
-        );
-        
+
+        let result = calculate_file_stability("src/unstable.rs".to_string(), file_info, None, None);
+
         assert_eq!(result.path, "src/unstable.rs");
         assert_eq!(result.changes, 3);
         assert_eq!(result.authors, 2);
@@ -570,7 +577,7 @@ mod tests {
         assert!(result.avg_days_between_changes > 0.0);
         assert_eq!(result.primary_author, "Alice"); // 2 commits vs Bob's 1
         assert_eq!(result.primary_author_changes, 2);
-        
+
         // Should have higher instability due to multiple authors, reverts, and fixes
         assert!(result.stability_score > 5.0);
     }
@@ -578,7 +585,7 @@ mod tests {
     #[test]
     fn test_calculate_file_stability_scoring() {
         // Test that files with more issues get higher (worse) stability scores
-        
+
         // Stable file: single author, no reverts/fixes
         let stable_info = FileChangeInfo {
             commits: vec![CommitInfo {
@@ -589,14 +596,10 @@ mod tests {
             }],
             authors: HashSet::from(["Alice".to_string()]),
         };
-        
-        let stable_result = calculate_file_stability(
-            "stable.rs".to_string(),
-            stable_info,
-            None,
-            None,
-        );
-        
+
+        let stable_result =
+            calculate_file_stability("stable.rs".to_string(), stable_info, None, None);
+
         // Unstable file: multiple authors, reverts, fixes
         let unstable_info = FileChangeInfo {
             commits: vec![
@@ -632,19 +635,18 @@ mod tests {
                 "Dave".to_string(),
             ]),
         };
-        
-        let unstable_result = calculate_file_stability(
-            "unstable.rs".to_string(),
-            unstable_info,
-            None,
-            None,
-        );
-        
+
+        let unstable_result =
+            calculate_file_stability("unstable.rs".to_string(), unstable_info, None, None);
+
         // Unstable file should have significantly higher stability score
-        assert!(unstable_result.stability_score > stable_result.stability_score * 2.0,
+        assert!(
+            unstable_result.stability_score > stable_result.stability_score * 2.0,
             "Unstable file should have much higher instability score. Stable: {}, Unstable: {}",
-            stable_result.stability_score, unstable_result.stability_score);
-        
+            stable_result.stability_score,
+            unstable_result.stability_score
+        );
+
         // Verify specific metrics
         assert_eq!(unstable_result.authors, 4);
         assert_eq!(unstable_result.reverts, 1);
@@ -682,21 +684,16 @@ mod tests {
             ],
             authors: HashSet::from(["Alice".to_string(), "Bob".to_string()]),
         };
-        
-        let result = calculate_file_stability(
-            "test.rs".to_string(),
-            file_info,
-            None,
-            None,
-        );
-        
+
+        let result = calculate_file_stability("test.rs".to_string(), file_info, None, None);
+
         // Alice has 3 commits, Bob has 1, so Alice should be primary author
         assert_eq!(result.primary_author, "Alice");
         assert_eq!(result.primary_author_changes, 3);
         assert_eq!(result.authors, 2);
         assert_eq!(result.changes, 4);
     }
-    
+
     #[test]
     fn test_stability_edge_cases() {
         // Test with empty commits (should handle gracefully)
@@ -704,27 +701,22 @@ mod tests {
             commits: vec![],
             authors: HashSet::new(),
         };
-        
-        let result = calculate_file_stability(
-            "empty.rs".to_string(),
-            empty_info,
-            None,
-            None,
-        );
-        
+
+        let result = calculate_file_stability("empty.rs".to_string(), empty_info, None, None);
+
         assert_eq!(result.path, "empty.rs");
         assert_eq!(result.changes, 0);
         assert_eq!(result.authors, 0);
         assert_eq!(result.primary_author, "Unknown");
         assert_eq!(result.primary_author_changes, 0);
-        
+
         // Test commit message edge cases
         assert!(is_fix_commit("FIX: uppercase"));
         assert!(is_fix_commit("emergency hotfix"));
         assert!(is_revert_commit("REVERT: uppercase"));
         assert!(!is_fix_commit(""));
         assert!(!is_revert_commit(""));
-        
+
         // Test binary file detection edge cases
         assert!(is_likely_binary_or_non_code("path/to/node_modules/lib.js"));
         assert!(is_likely_binary_or_non_code("src/target/release/app"));
@@ -736,15 +728,18 @@ mod tests {
     fn test_time_parsing_edge_cases() {
         // Test zero values
         let result = parse_time_spec("0d").unwrap();
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
         assert!((result - now).abs() <= 1);
-        
+
         // Test large values
         assert!(parse_time_spec("999d").is_ok());
         assert!(parse_time_spec("52w").is_ok());
         assert!(parse_time_spec("12m").is_ok());
         assert!(parse_time_spec("10y").is_ok());
-        
+
         // Test malformed inputs
         assert!(parse_time_spec("d").is_err());
         assert!(parse_time_spec("10").is_err());

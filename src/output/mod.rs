@@ -346,3 +346,25 @@ pub fn render_stability(
         OutputFormat::Chart => ascii::print_stability_bars(&stats),
     }
 }
+
+#[derive(serde::Serialize)]
+struct ReleasesOutput {
+    limit: Option<usize>,
+    release_stats: crate::stats::releases::ReleaseStats,
+}
+
+pub fn render_releases(repo: &Repository, limit: Option<usize>, fmt: OutputFormat) -> Result<()> {
+    let stats = crate::stats::releases::analyze_releases(repo, limit)?;
+
+    match fmt {
+        OutputFormat::Json => {
+            let out = ReleasesOutput {
+                limit,
+                release_stats: stats,
+            };
+            json::print(&out)
+        }
+        OutputFormat::Table => table::print_releases_table(&stats),
+        OutputFormat::Chart => ascii::print_releases_bars(&stats),
+    }
+}
