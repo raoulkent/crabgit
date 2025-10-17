@@ -441,7 +441,7 @@ mod tests {
         let stats = analyze_coupling(&repo, Some("1d"), None, false, 10, 0.0, 100)?;
 
         // Should work even with time filters
-        assert!(stats.total_commits == 0 || stats.total_commits > 0);
+        // total_commits is usize, so always >= 0
 
         Ok(())
     }
