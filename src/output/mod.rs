@@ -127,3 +127,33 @@ pub fn render_hotspots(
         OutputFormat::Chart => ascii::print_hotspots_bars(&hs),
     }
 }
+
+#[derive(serde::Serialize)]
+struct BranchesOutput<'a> {
+    context: StatsContext,
+    base: Option<&'a str>,
+    branch_stats: crate::stats::branches::BranchStats,
+}
+
+pub fn render_branches(
+    repo: &Repository,
+    ctx: &StatsContext,
+    base: Option<&str>,
+    fmt: OutputFormat,
+) -> Result<()> {
+    let stats = crate::stats::branches::analyze_branches(
+        repo,
+        base,
+        ctx.since.as_deref(),
+        ctx.until.as_deref(),
+        ctx.no_merges,
+    )?;
+    match fmt {
+        OutputFormat::Json => {
+            let out = BranchesOutput { context: ctx.clone(), base, branch_stats: stats };
+            json::print(&out)
+        }
+        OutputFormat::Table => table::print_branches_table(&stats),
+        OutputFormat::Chart => ascii::print_branches_bars(&stats),
+    }
+}
