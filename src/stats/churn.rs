@@ -68,6 +68,10 @@ fn diff_trees(repo: &Repository, a: Option<&Tree>, b: Option<&Tree>) -> Result<(
     Ok((stats.insertions() as u64, stats.deletions() as u64))
 }
 
+pub fn diff_trees_public(repo: &Repository, a: Option<&Tree>, b: Option<&Tree>) -> Result<(u64, u64)> {
+    diff_trees(repo, a, b)
+}
+
 fn bucket_start(ts: i64, bucket: Bucket) -> i64 {
     match bucket {
         Bucket::Day => ts - (ts % 86_400),
