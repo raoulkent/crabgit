@@ -69,3 +69,23 @@ pub fn print_calendar_heatmap(matrix: &[[u64;24];7]) -> Result<()> {
     }
     Ok(())
 }
+
+pub fn print_hotspots_bars(hs: &[crate::stats::hotspots::FileHotspot]) -> Result<()> {
+    if hs.is_empty() { println!("(no data)"); return Ok(()); }
+    let max = hs.iter().map(|h| h.weighted).fold(0.0, f64::max);
+    for h in hs.iter() {
+        let ratio = if max == 0.0 { 0.0 } else { h.weighted / max };
+        let width = (ratio * 30.0).round() as usize;
+        let bar = "█".repeat(width);
+        println!("{:>8.1} | {:<30} {}", h.weighted, truncate_path(&h.path, 30), bar);
+    }
+    Ok(())
+}
+
+fn truncate_path(s: &str, max: usize) -> String {
+    if s.len() <= max { return s.to_string(); }
+    let mut out = String::with_capacity(max);
+    out.push('…');
+    out.push_str(&s[s.len().saturating_sub(max-1)..]);
+    out
+}

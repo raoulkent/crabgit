@@ -71,3 +71,16 @@ pub fn print_calendar_table(matrix: &[[u64;24];7]) -> Result<()> {
     }
     Ok(())
 }
+
+pub fn print_hotspots_table(hs: &[crate::stats::hotspots::FileHotspot], half_life_days: f64, include: Option<&str>, exclude: Option<&str>) -> Result<()> {
+    println!("🦀 Hotspots (half-life: {:.1}d)", half_life_days);
+    if let Some(i) = include { println!("filter include: {}", i); }
+    if let Some(e) = exclude { println!("filter exclude: {}", e); }
+    println!("================================\n");
+    println!(" weighted  churn   adds   dels  path");
+    println!(" --------  ------  -----  ----- ----------------------------------------");
+    for f in hs.iter() {
+        println!(" {:>8.1}  {:>6}  {:>5}  {:>5} {}", f.weighted, f.churn, f.adds, f.dels, f.path);
+    }
+    Ok(())
+}

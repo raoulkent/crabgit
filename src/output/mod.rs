@@ -96,3 +96,34 @@ pub fn render_calendar(repo: &Repository, ctx: &StatsContext, fmt: OutputFormat)
         OutputFormat::Chart => ascii::print_calendar_heatmap(&mat.matrix),
     }
 }
+
+#[derive(serde::Serialize)]
+struct HotspotsOutput<'a> {
+    context: StatsContext,
+    half_life_days: f64,
+    include: Option<&'a str>,
+    exclude: Option<&'a str>,
+    top: usize,
+    hotspots: Vec<crate::stats::hotspots::FileHotspot>,
+}
+
+pub fn render_hotspots(
+    repo: &Repository,
+    ctx: &StatsContext,
+    include: Option<&str>,
+    exclude: Option<&str>,
+    half_life_days: f64,
+    top: usize,
+    fmt: OutputFormat,
+) -> Result<()> {
+    let mut hs = crate::stats::hotspots::compute_hotspots(repo, ctx, include, exclude, half_life_days)?;
+    if hs.len() > top { hs.truncate(top); }
+    match fmt {
+        OutputFormat::Json => {
+            let out = HotspotsOutput { context: ctx.clone(), half_life_days, include, exclude, top, hotspots: hs };
+            json::print(&out)
+        }
+        OutputFormat::Table => table::print_hotspots_table(&hs, half_life_days, include, exclude),
+        OutputFormat::Chart => ascii::print_hotspots_bars(&hs),
+    }
+}
