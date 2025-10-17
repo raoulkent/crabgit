@@ -127,3 +127,34 @@ fn truncate_branch_name(s: &str, max: usize) -> String {
     out.push('…');
     out
 }
+
+pub fn print_coupling_edges(stats: &crate::stats::coupling::CouplingStats) -> Result<()> {
+    if stats.pairs.is_empty() { println!("(no coupling found)"); return Ok(()); }
+    
+    println!("🦀 File coupling edges (sorted by lift)");
+    println!("========================================\n");
+    
+    let max_lift = stats.pairs.iter().map(|p| p.lift).fold(0.0, f64::max);
+    
+    for pair in &stats.pairs {
+        let lift_ratio = if max_lift > 0.0 { pair.lift / max_lift } else { 0.0 };
+        let width = (lift_ratio * 30.0).round() as usize;
+        let bar = "█".repeat(width);
+        
+        println!(
+            "{:>6.2} | {:<15} → {:<15} {}", 
+            pair.lift,
+            truncate_file_path(&pair.file_a, 15),
+            truncate_file_path(&pair.file_b, 15),
+            bar
+        );
+    }
+    
+    println!("\nMetrics: lift = confidence/support, higher = stronger association");
+    Ok(())
+}
+
+fn truncate_file_path(s: &str, max: usize) -> String {
+    if s.len() <= max { return s.to_string(); }
+    format!("…{}", &s[s.len().saturating_sub(max - 1)..])
+}

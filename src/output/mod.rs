@@ -157,3 +157,45 @@ pub fn render_branches(
         OutputFormat::Chart => ascii::print_branches_bars(&stats),
     }
 }
+
+#[derive(serde::Serialize)]
+struct CouplingOutput {
+    context: StatsContext,
+    top: usize,
+    min_support: f64,
+    window_size: usize,
+    coupling_stats: crate::stats::coupling::CouplingStats,
+}
+
+pub fn render_coupling(
+    repo: &Repository,
+    ctx: &StatsContext,
+    top: usize,
+    min_support: f64,
+    window_size: usize,
+    fmt: OutputFormat,
+) -> Result<()> {
+    let stats = crate::stats::coupling::analyze_coupling(
+        repo,
+        ctx.since.as_deref(),
+        ctx.until.as_deref(),
+        ctx.no_merges,
+        top,
+        min_support,
+        window_size,
+    )?;
+    match fmt {
+        OutputFormat::Json => {
+            let out = CouplingOutput { 
+                context: ctx.clone(), 
+                top, 
+                min_support, 
+                window_size, 
+                coupling_stats: stats 
+            };
+            json::print(&out)
+        }
+        OutputFormat::Table => table::print_coupling_table(&stats, min_support),
+        OutputFormat::Chart => ascii::print_coupling_edges(&stats),
+    }
+}
