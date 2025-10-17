@@ -8,7 +8,11 @@ pub struct CalendarHeatmap {
     pub matrix: [[u64; 24]; 7],
 }
 
-pub fn compute_calendar(repo: &Repository, since: Option<&str>, until: Option<&str>) -> Result<CalendarHeatmap> {
+pub fn compute_calendar(
+    repo: &Repository,
+    since: Option<&str>,
+    until: Option<&str>,
+) -> Result<CalendarHeatmap> {
     let (since_ts, until_ts) = (
         crate::stats::activity::parse_instant(since),
         crate::stats::activity::parse_instant(until),
@@ -24,10 +28,19 @@ pub fn compute_calendar(repo: &Repository, since: Option<&str>, until: Option<&s
         let oid = oid?;
         let commit = repo.find_commit(oid)?;
         let ts = commit.time().seconds();
-        if let Some(since) = since_ts && ts < since { continue; }
-        if let Some(until) = until_ts && ts > until { continue; }
+        if let Some(since) = since_ts
+            && ts < since
+        {
+            continue;
+        }
+        if let Some(until) = until_ts
+            && ts > until
+        {
+            continue;
+        }
 
-        let dt = time::OffsetDateTime::from_unix_timestamp(ts).unwrap_or(time::OffsetDateTime::UNIX_EPOCH);
+        let dt = time::OffsetDateTime::from_unix_timestamp(ts)
+            .unwrap_or(time::OffsetDateTime::UNIX_EPOCH);
         let iso_weekday = dt.date().weekday().number_from_monday() as usize - 1; // 0..6
         let hour = dt.hour() as usize;
         matrix[iso_weekday][hour] += 1;

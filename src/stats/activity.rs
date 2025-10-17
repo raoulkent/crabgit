@@ -13,7 +13,10 @@ pub struct ActivityPoint {
 }
 
 pub fn compute_activity(repo: &Repository, ctx: &StatsContext) -> Result<Vec<ActivityPoint>> {
-    let (since_ts, until_ts) = (parse_instant(ctx.since.as_deref()), parse_instant(ctx.until.as_deref()));
+    let (since_ts, until_ts) = (
+        parse_instant(ctx.since.as_deref()),
+        parse_instant(ctx.until.as_deref()),
+    );
 
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head()?;
@@ -42,7 +45,10 @@ pub fn compute_activity(repo: &Repository, ctx: &StatsContext) -> Result<Vec<Act
 
     Ok(buckets
         .into_iter()
-        .map(|(k, v)| ActivityPoint { bucket_start: k, commits: v })
+        .map(|(k, v)| ActivityPoint {
+            bucket_start: k,
+            commits: v,
+        })
         .collect())
 }
 
@@ -74,19 +80,27 @@ pub fn parse_instant(s: Option<&str>) -> Option<i64> {
     let now = OffsetDateTime::now_utc().unix_timestamp();
     if let Some(num) = s.strip_suffix('d')
         && let Ok(n) = num.parse::<i64>()
-    { return Some(now - n * 86_400); }
+    {
+        return Some(now - n * 86_400);
+    }
 
     if let Some(num) = s.strip_suffix('w')
         && let Ok(n) = num.parse::<i64>()
-    { return Some(now - n * 7 * 86_400); }
+    {
+        return Some(now - n * 7 * 86_400);
+    }
 
     if let Some(num) = s.strip_suffix('m')
         && let Ok(n) = num.parse::<i64>()
-    { return Some(now - n * 30 * 86_400); }
+    {
+        return Some(now - n * 30 * 86_400);
+    }
 
     if let Some(num) = s.strip_suffix('y')
         && let Ok(n) = num.parse::<i64>()
-    { return Some(now - n * 365 * 86_400); }
+    {
+        return Some(now - n * 365 * 86_400);
+    }
 
     // Try YYYY-MM-DD
     if let Some((y, rest)) = s.split_once('-')

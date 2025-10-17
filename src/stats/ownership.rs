@@ -79,7 +79,7 @@ pub fn analyze_ownership_fast(
     for oid_result in revwalk {
         let oid = oid_result?;
         let commit = repo.find_commit(oid)?;
-        
+
         // Apply time filters
         let commit_time = commit.time().seconds();
         if let Some(since) = since_time {
@@ -95,7 +95,7 @@ pub fn analyze_ownership_fast(
 
         let author = commit.author().name().unwrap_or("(unknown)").to_string();
         let changed_files = get_changed_files(repo, &commit)?;
-        
+
         for file_path in changed_files {
             // Apply include/exclude patterns
             if let Some(exclude) = exclude_pattern {
@@ -108,9 +108,9 @@ pub fn analyze_ownership_fast(
                     continue;
                 }
             }
-            
+
             total_files_seen.insert(file_path.clone());
-            
+
             // Update last modified only if we haven't seen this file yet (most recent)
             if !file_last_modified.contains_key(&file_path) {
                 file_last_modified.insert(file_path, (author.clone(), commit_time));
@@ -179,7 +179,14 @@ pub fn analyze_ownership_blame(
 
     // Walk the tree to find files
     let mut files_to_analyze = Vec::new();
-    collect_files_for_blame(repo, &tree, "", &mut files_to_analyze, include_pattern, exclude_pattern)?;
+    collect_files_for_blame(
+        repo,
+        &tree,
+        "",
+        &mut files_to_analyze,
+        include_pattern,
+        exclude_pattern,
+    )?;
 
     // Limit files to analyze for performance
     if files_to_analyze.len() > top_n {
@@ -194,7 +201,11 @@ pub fn analyze_ownership_blame(
     }
 
     // Sort by ownership percentage (highest first)
-    file_ownership.sort_by(|a, b| b.ownership_percentage.partial_cmp(&a.ownership_percentage).unwrap_or(std::cmp::Ordering::Equal));
+    file_ownership.sort_by(|a, b| {
+        b.ownership_percentage
+            .partial_cmp(&a.ownership_percentage)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     // Calculate overall ownership statistics
     let overall_ownership = calculate_overall_ownership(&file_ownership);
@@ -215,18 +226,18 @@ fn analyze_file_blame(repo: &Repository, file_path: &str) -> Result<FileOwnershi
     let mut author_lines: HashMap<String, usize> = HashMap::new();
     let mut last_modified_by = String::from("(unknown)");
     let mut last_modified_time = 0i64;
-    
+
     let total_lines = blame.len();
-    
+
     // Count lines per author
     for i in 0..total_lines {
         if let Some(hunk) = blame.get_line(i) {
             let commit = repo.find_commit(hunk.final_commit_id())?;
             let author = commit.author().name().unwrap_or("(unknown)").to_string();
             let commit_time = commit.time().seconds();
-            
+
             *author_lines.entry(author.clone()).or_insert(0) += 1;
-            
+
             // Track most recent modification
             if commit_time > last_modified_time {
                 last_modified_time = commit_time;
@@ -236,7 +247,8 @@ fn analyze_file_blame(repo: &Repository, file_path: &str) -> Result<FileOwnershi
     }
 
     // Find primary owner and create contributor shares
-    let mut contributors: Vec<ContributorShare> = author_lines.iter()
+    let mut contributors: Vec<ContributorShare> = author_lines
+        .iter()
         .map(|(author, &lines)| ContributorShare {
             author: author.clone(),
             lines,
@@ -245,15 +257,18 @@ fn analyze_file_blame(repo: &Repository, file_path: &str) -> Result<FileOwnershi
         .collect();
 
     // Sort by percentage (highest first)
-    contributors.sort_by(|a, b| b.percentage.partial_cmp(&a.percentage).unwrap_or(std::cmp::Ordering::Equal));
+    contributors.sort_by(|a, b| {
+        b.percentage
+            .partial_cmp(&a.percentage)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
-    let primary_owner = contributors.first()
+    let primary_owner = contributors
+        .first()
         .map(|c| c.author.clone())
         .unwrap_or_else(|| "(unknown)".to_string());
-    
-    let ownership_percentage = contributors.first()
-        .map(|c| c.percentage)
-        .unwrap_or(0.0);
+
+    let ownership_percentage = contributors.first().map(|c| c.percentage).unwrap_or(0.0);
 
     Ok(FileOwnership {
         path: file_path.to_string(),
@@ -282,11 +297,18 @@ fn collect_files_for_blame(
         } else {
             format!("{}/{}", prefix, name)
         };
-        
+
         if entry.kind() == Some(git2::ObjectType::Tree) {
             if let Ok(object) = entry.to_object(repo) {
                 if let Ok(subtree) = object.peel_to_tree() {
-                    collect_files_for_blame(repo, &subtree, &path, files, include_pattern, exclude_pattern)?;
+                    collect_files_for_blame(
+                        repo,
+                        &subtree,
+                        &path,
+                        files,
+                        include_pattern,
+                        exclude_pattern,
+                    )?;
                 }
             }
         } else if entry.kind() == Some(git2::ObjectType::Blob) {
@@ -301,7 +323,7 @@ fn collect_files_for_blame(
                     continue;
                 }
             }
-            
+
             files.push(path);
         }
     }
@@ -310,25 +332,21 @@ fn collect_files_for_blame(
 
 fn get_changed_files(repo: &Repository, commit: &git2::Commit) -> Result<Vec<String>> {
     let mut changed_files = Vec::new();
-    
+
     if commit.parent_count() == 0 {
         // Root commit - all files are new
         let tree = commit.tree()?;
         collect_all_files(repo, &tree, "", &mut changed_files)?;
         return Ok(changed_files);
     }
-    
+
     // Compare with first parent
     let parent = commit.parent(0)?;
     let parent_tree = parent.tree()?;
     let commit_tree = commit.tree()?;
-    
-    let diff = repo.diff_tree_to_tree(
-        Some(&parent_tree),
-        Some(&commit_tree),
-        None,
-    )?;
-    
+
+    let diff = repo.diff_tree_to_tree(Some(&parent_tree), Some(&commit_tree), None)?;
+
     diff.foreach(
         &mut |diff_delta, _progress| {
             if let Some(path) = diff_delta.new_file().path() {
@@ -342,11 +360,16 @@ fn get_changed_files(repo: &Repository, commit: &git2::Commit) -> Result<Vec<Str
         None,
         None,
     )?;
-    
+
     Ok(changed_files)
 }
 
-fn collect_all_files(repo: &Repository, tree: &git2::Tree, prefix: &str, files: &mut Vec<String>) -> Result<()> {
+fn collect_all_files(
+    repo: &Repository,
+    tree: &git2::Tree,
+    prefix: &str,
+    files: &mut Vec<String>,
+) -> Result<()> {
     for entry in tree {
         let name = entry.name().unwrap_or("(unknown)");
         let path = if prefix.is_empty() {
@@ -354,7 +377,7 @@ fn collect_all_files(repo: &Repository, tree: &git2::Tree, prefix: &str, files: 
         } else {
             format!("{}/{}", prefix, name)
         };
-        
+
         if entry.kind() == Some(git2::ObjectType::Tree) {
             if let Ok(object) = entry.to_object(repo) {
                 if let Ok(subtree) = object.peel_to_tree() {
@@ -370,30 +393,39 @@ fn collect_all_files(repo: &Repository, tree: &git2::Tree, prefix: &str, files: 
 
 fn calculate_overall_ownership(file_ownership: &[FileOwnership]) -> Vec<AuthorOwnership> {
     let mut author_stats: HashMap<String, (usize, usize)> = HashMap::new(); // (files_owned, total_lines)
-    
+
     for file in file_ownership {
-        let entry = author_stats.entry(file.primary_owner.clone()).or_insert((0, 0));
+        let entry = author_stats
+            .entry(file.primary_owner.clone())
+            .or_insert((0, 0));
         entry.0 += 1; // files_owned
         entry.1 += file.total_lines; // total_lines
     }
-    
+
     let total_lines: usize = author_stats.values().map(|(_, lines)| *lines).sum();
-    
-    let mut overall_ownership: Vec<AuthorOwnership> = author_stats.iter()
-        .map(|(author, &(files_owned, total_lines_owned))| AuthorOwnership {
-            author: author.clone(),
-            files_owned,
-            total_lines_owned,
-            ownership_percentage: if total_lines > 0 {
-                (total_lines_owned as f64 / total_lines as f64) * 100.0
-            } else {
-                0.0
+
+    let mut overall_ownership: Vec<AuthorOwnership> = author_stats
+        .iter()
+        .map(
+            |(author, &(files_owned, total_lines_owned))| AuthorOwnership {
+                author: author.clone(),
+                files_owned,
+                total_lines_owned,
+                ownership_percentage: if total_lines > 0 {
+                    (total_lines_owned as f64 / total_lines as f64) * 100.0
+                } else {
+                    0.0
+                },
             },
-        })
+        )
         .collect();
-    
-    overall_ownership.sort_by(|a, b| b.ownership_percentage.partial_cmp(&a.ownership_percentage).unwrap_or(std::cmp::Ordering::Equal));
-    
+
+    overall_ownership.sort_by(|a, b| {
+        b.ownership_percentage
+            .partial_cmp(&a.ownership_percentage)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
     overall_ownership
 }
 
@@ -408,11 +440,12 @@ fn calculate_bus_factor(overall_ownership: &[AuthorOwnership], _total_files: usi
     }
 
     // Calculate how much of the codebase is covered by top contributors
-    let top_3_coverage: f64 = overall_ownership.iter()
+    let top_3_coverage: f64 = overall_ownership
+        .iter()
         .take(3)
         .map(|a| a.ownership_percentage)
         .sum();
-    
+
     // Bus factor calculation (simplified):
     // Higher concentration = lower bus factor (more risky)
     // Lower concentration = higher bus factor (less risky)
@@ -426,7 +459,7 @@ fn calculate_bus_factor(overall_ownership: &[AuthorOwnership], _total_files: usi
     } else {
         4.0 // Good - distributed ownership
     };
-    
+
     let description = match bus_factor_score as u32 {
         1 => "Critical: Very high concentration of ownership".to_string(),
         2 => "High risk: Significant ownership concentration".to_string(),
@@ -435,7 +468,8 @@ fn calculate_bus_factor(overall_ownership: &[AuthorOwnership], _total_files: usi
     };
 
     // Count files with >80% single-author ownership as critical
-    let critical_files = overall_ownership.iter()
+    let critical_files = overall_ownership
+        .iter()
         .filter(|a| a.ownership_percentage > 80.0)
         .map(|a| a.files_owned)
         .sum();
@@ -453,7 +487,7 @@ fn glob_match(text: &str, pattern: &str) -> bool {
     if pattern == "*" {
         return true;
     }
-    
+
     // Convert glob pattern to regex-like matching
     if pattern.contains('*') {
         let parts: Vec<&str> = pattern.split('*').collect();
@@ -463,7 +497,7 @@ fn glob_match(text: &str, pattern: &str) -> bool {
             return text.starts_with(prefix) && text.ends_with(suffix);
         }
     }
-    
+
     // Exact match
     text == pattern
 }
@@ -477,12 +511,12 @@ mod tests {
     fn create_test_repo() -> Result<(TempDir, Repository)> {
         let temp_dir = TempDir::new()?;
         let repo = Repository::init(&temp_dir)?;
-        
+
         // Set up user
         let mut config = repo.config()?;
         config.set_str("user.name", "Test User")?;
         config.set_str("user.email", "test@example.com")?;
-        
+
         Ok((temp_dir, repo))
     }
 
@@ -494,7 +528,7 @@ mod tests {
         parent: Option<&git2::Commit>,
     ) -> Result<git2::Oid> {
         let sig = Signature::new(author, "test@example.com", &Time::new(1000000, 0))?;
-        
+
         let tree_id = {
             let mut tree_builder = repo.treebuilder(None)?;
             for (path, content) in files {
@@ -503,21 +537,18 @@ mod tests {
             }
             tree_builder.write()?
         };
-        
-        let parents: Vec<&git2::Commit> = if let Some(p) = parent { vec![p] } else { vec![] };
-        
+
+        let parents: Vec<&git2::Commit> = if let Some(p) = parent {
+            vec![p]
+        } else {
+            vec![]
+        };
+
         let oid = {
             let tree = repo.find_tree(tree_id)?;
-            repo.commit(
-                None,
-                &sig,
-                &sig,
-                message,
-                &tree,
-                &parents,
-            )?
+            repo.commit(None, &sig, &sig, message, &tree, &parents)?
         };
-        
+
         repo.reference("HEAD", oid, true, "commit")?;
         Ok(oid)
     }
@@ -525,7 +556,7 @@ mod tests {
     #[test]
     fn test_ownership_fast_analysis() -> Result<()> {
         let (_temp_dir, repo) = create_test_repo()?;
-        
+
         // Create commits by different authors
         let commit1_oid = create_commit_with_files(
             &repo,
@@ -534,7 +565,7 @@ mod tests {
             "Alice",
             None,
         )?;
-        
+
         let commit1 = repo.find_commit(commit1_oid)?;
         let _commit2_oid = create_commit_with_files(
             &repo,
@@ -545,11 +576,11 @@ mod tests {
         )?;
 
         let stats = analyze_ownership_fast(&repo, None, None, 10, None, None)?;
-        
+
         assert_eq!(stats.analysis_mode, OwnershipMode::LastModified);
         assert!(stats.files_analyzed > 0);
         assert!(!stats.overall_ownership.is_empty());
-        
+
         Ok(())
     }
 
@@ -571,12 +602,12 @@ mod tests {
         ];
 
         let bus_factor = calculate_bus_factor(&ownership, 10);
-        
+
         // High concentration should result in low bus factor
         assert_eq!(bus_factor.score, 1.0);
         assert!(bus_factor.description.contains("Critical"));
         assert!(bus_factor.top_contributors_coverage > 50.0);
-        
+
         Ok(())
     }
 
@@ -587,7 +618,7 @@ mod tests {
         assert!(glob_match("test.rs", "*.rs"));
         assert!(!glob_match("test.txt", "*.rs"));
         assert!(glob_match("exact_match", "exact_match"));
-        
+
         Ok(())
     }
 
@@ -617,17 +648,17 @@ mod tests {
         ];
 
         let overall = calculate_overall_ownership(&file_ownership);
-        
+
         assert_eq!(overall.len(), 2);
-        
+
         // Alice should have higher ownership (100 lines vs 50)
         let alice = overall.iter().find(|a| a.author == "Alice").unwrap();
         let bob = overall.iter().find(|a| a.author == "Bob").unwrap();
-        
+
         assert!(alice.ownership_percentage > bob.ownership_percentage);
         assert_eq!(alice.files_owned, 1);
         assert_eq!(bob.files_owned, 1);
-        
+
         Ok(())
     }
 }
