@@ -22,8 +22,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-mod stats;
 mod output;
+mod stats;
 #[derive(Parser)]
 #[command(name = "gitcrab")]
 #[command(about = "CLI tool for inspecting Git repos. Blazingly fast 🦀", long_about = None)]
@@ -81,6 +81,8 @@ enum StatsCommand {
     Coupling(CouplingArgs),
     /// Code ownership and bus factor analysis
     Ownership(OwnershipArgs),
+    /// Change stability analysis for files and authors
+    Stability(StabilityArgs),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -242,6 +244,31 @@ struct OwnershipArgs {
     format: stats::OutputFormat,
 }
 
+#[derive(Args, Debug, Clone)]
+struct StabilityArgs {
+    /// Start of time window
+    #[arg(long)]
+    since: Option<String>,
+    /// End of time window
+    #[arg(long)]
+    until: Option<String>,
+    /// Filter by author (partial name match)
+    #[arg(long)]
+    author: Option<String>,
+    /// Filter by directory path
+    #[arg(long)]
+    directory: Option<String>,
+    /// Exclude merge commits
+    #[arg(long, default_value_t = true)]
+    no_merges: bool,
+    /// Top N files to show
+    #[arg(long, default_value_t = 25)]
+    top: usize,
+    /// Output format
+    #[arg(long, value_enum, default_value = "table")]
+    format: stats::OutputFormat,
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -276,7 +303,9 @@ fn main() -> Result<()> {
                     p.display().to_string()
                 } else if let Some(parent) = repo.path().parent() {
                     parent.display().to_string()
-                } else { String::from(".") };
+                } else {
+                    String::from(".")
+                };
                 let ctx = stats::StatsContext {
                     repo_path: repo_display,
                     since: args.since.clone(),
@@ -291,7 +320,9 @@ fn main() -> Result<()> {
                     p.display().to_string()
                 } else if let Some(parent) = repo.path().parent() {
                     parent.display().to_string()
-                } else { String::from(".") };
+                } else {
+                    String::from(".")
+                };
                 let ctx = stats::StatsContext {
                     repo_path: repo_display,
                     since: args.since.clone(),
@@ -306,7 +337,9 @@ fn main() -> Result<()> {
                     p.display().to_string()
                 } else if let Some(parent) = repo.path().parent() {
                     parent.display().to_string()
-                } else { String::from(".") };
+                } else {
+                    String::from(".")
+                };
                 let ctx = stats::StatsContext {
                     repo_path: repo_display,
                     since: args.since.clone(),
@@ -314,14 +347,24 @@ fn main() -> Result<()> {
                     bucket: stats::Bucket::Week,
                     no_merges: args.no_merges,
                 };
-                output::render_hotspots(&repo, &ctx, args.include.as_deref(), args.exclude.as_deref(), args.half_life_days, args.top, args.format)?;
+                output::render_hotspots(
+                    &repo,
+                    &ctx,
+                    args.include.as_deref(),
+                    args.exclude.as_deref(),
+                    args.half_life_days,
+                    args.top,
+                    args.format,
+                )?;
             }
             Some(StatsCommand::Branches(args)) => {
                 let repo_display = if let Some(p) = repo.workdir() {
                     p.display().to_string()
                 } else if let Some(parent) = repo.path().parent() {
                     parent.display().to_string()
-                } else { String::from(".") };
+                } else {
+                    String::from(".")
+                };
                 let ctx = stats::StatsContext {
                     repo_path: repo_display,
                     since: args.since.clone(),
@@ -336,7 +379,9 @@ fn main() -> Result<()> {
                     p.display().to_string()
                 } else if let Some(parent) = repo.path().parent() {
                     parent.display().to_string()
-                } else { String::from(".") };
+                } else {
+                    String::from(".")
+                };
                 let ctx = stats::StatsContext {
                     repo_path: repo_display,
                     since: args.since.clone(),
@@ -344,14 +389,23 @@ fn main() -> Result<()> {
                     bucket: stats::Bucket::Week,
                     no_merges: args.no_merges,
                 };
-                output::render_coupling(&repo, &ctx, args.top, args.min_support, args.window_size, args.format)?;
+                output::render_coupling(
+                    &repo,
+                    &ctx,
+                    args.top,
+                    args.min_support,
+                    args.window_size,
+                    args.format,
+                )?;
             }
             Some(StatsCommand::Ownership(args)) => {
                 let repo_display = if let Some(p) = repo.workdir() {
                     p.display().to_string()
                 } else if let Some(parent) = repo.path().parent() {
                     parent.display().to_string()
-                } else { String::from(".") };
+                } else {
+                    String::from(".")
+                };
                 let ctx = stats::StatsContext {
                     repo_path: repo_display,
                     since: args.since.clone(),
@@ -359,7 +413,39 @@ fn main() -> Result<()> {
                     bucket: stats::Bucket::Week,
                     no_merges: false, // Not relevant for ownership analysis
                 };
-                output::render_ownership(&repo, &ctx, args.top, args.include.as_deref(), args.exclude.as_deref(), args.expensive, args.format)?;
+                output::render_ownership(
+                    &repo,
+                    &ctx,
+                    args.top,
+                    args.include.as_deref(),
+                    args.exclude.as_deref(),
+                    args.expensive,
+                    args.format,
+                )?;
+            }
+            Some(StatsCommand::Stability(args)) => {
+                let repo_display = if let Some(p) = repo.workdir() {
+                    p.display().to_string()
+                } else if let Some(parent) = repo.path().parent() {
+                    parent.display().to_string()
+                } else {
+                    String::from(".")
+                };
+                let ctx = stats::StatsContext {
+                    repo_path: repo_display,
+                    since: args.since.clone(),
+                    until: args.until.clone(),
+                    bucket: stats::Bucket::Week, // unused for stability
+                    no_merges: args.no_merges,
+                };
+                output::render_stability(
+                    &repo,
+                    &ctx,
+                    args.author.as_deref(),
+                    args.directory.as_deref(),
+                    args.top,
+                    args.format,
+                )?;
             }
             None => show_stats(&repo)?,
         },
@@ -808,5 +894,27 @@ mod tests {
         let repo = Repository::open(&repo_path).expect("Failed to open repository");
         let result = show_log(&repo, 5);
         assert!(result.is_ok(), "show_log should succeed");
+    }
+    
+    #[test]
+    fn test_stability_analysis() {
+        // Test that stability analysis doesn't panic on current repository
+        let repo_path = env::current_dir().expect("Failed to get current directory");
+        let repo = Repository::open(&repo_path).expect("Failed to open repository");
+        
+        let ctx = stats::StatsContext {
+            repo_path: repo_path.display().to_string(),
+            since: Some("30d".to_string()),
+            until: None,
+            bucket: stats::Bucket::Week,
+            no_merges: true,
+        };
+        
+        let result = stats::stability::analyze_stability(&repo, &ctx, None, None, 10);
+        assert!(result.is_ok(), "stability analysis should succeed");
+        
+        let stats = result.unwrap();
+        assert!(stats.total_files_analyzed <= 100, "should analyze reasonable number of files");
+        assert_eq!(stats.date_range_days, 365, "default date range should be 365 days");
     }
 }

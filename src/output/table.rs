@@ -1,9 +1,9 @@
-use anyhow::Result;
+use crate::stats::AuthorMetric;
 use crate::stats::StatsContext;
 use crate::stats::activity::ActivityPoint;
-use crate::stats::churn::ChurnPoint;
 use crate::stats::authors::AuthorStats;
-use crate::stats::AuthorMetric;
+use crate::stats::churn::ChurnPoint;
+use anyhow::Result;
 use time::OffsetDateTime;
 
 fn fmt_bucket(ts: i64) -> String {
@@ -37,7 +37,12 @@ pub fn print_repo_churn(ctx: &StatsContext, series: &[ChurnPoint]) -> Result<()>
     println!("\n bucket            adds     dels");
     println!(" ----------------  -------  -------");
     for p in series.iter().take(20) {
-        println!(" {:<16}  {:>7}  {:>7}", fmt_bucket(p.bucket_start), p.adds, p.dels);
+        println!(
+            " {:<16}  {:>7}  {:>7}",
+            fmt_bucket(p.bucket_start),
+            p.adds,
+            p.dels
+        );
     }
     if series.len() > 20 {
         println!(" ... ({} more)", series.len() - 20);
@@ -46,22 +51,31 @@ pub fn print_repo_churn(ctx: &StatsContext, series: &[ChurnPoint]) -> Result<()>
 }
 
 pub fn print_authors_table(authors: &[AuthorStats], metric: AuthorMetric) -> Result<()> {
-    println!("🦀 Top authors by {}", match metric { AuthorMetric::Commits => "commits", AuthorMetric::Churn => "churn"});
+    println!(
+        "🦀 Top authors by {}",
+        match metric {
+            AuthorMetric::Commits => "commits",
+            AuthorMetric::Churn => "churn",
+        }
+    );
     println!("============================\n");
     println!(" author                       commits    adds    dels    total");
     println!(" --------------------------  -------  ------  ------  ------");
     for a in authors.iter() {
         let total = a.adds + a.dels;
-        println!(" {:<26}  {:>7}  {:>6}  {:>6}  {:>6}", a.author, a.commits, a.adds, a.dels, total);
+        println!(
+            " {:<26}  {:>7}  {:>6}  {:>6}  {:>6}",
+            a.author, a.commits, a.adds, a.dels, total
+        );
     }
     Ok(())
 }
 
-pub fn print_calendar_table(matrix: &[[u64;24];7]) -> Result<()> {
+pub fn print_calendar_table(matrix: &[[u64; 24]; 7]) -> Result<()> {
     println!("🦀 Weekday x Hour activity (UTC)");
     println!("===============================\n");
     println!("        00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23");
-    let days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+    let days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     for (r, day) in days.iter().enumerate() {
         print!(" {} ", day);
         for c in 0..24 {
@@ -72,15 +86,27 @@ pub fn print_calendar_table(matrix: &[[u64;24];7]) -> Result<()> {
     Ok(())
 }
 
-pub fn print_hotspots_table(hs: &[crate::stats::hotspots::FileHotspot], half_life_days: f64, include: Option<&str>, exclude: Option<&str>) -> Result<()> {
+pub fn print_hotspots_table(
+    hs: &[crate::stats::hotspots::FileHotspot],
+    half_life_days: f64,
+    include: Option<&str>,
+    exclude: Option<&str>,
+) -> Result<()> {
     println!("🦀 Hotspots (half-life: {:.1}d)", half_life_days);
-    if let Some(i) = include { println!("filter include: {}", i); }
-    if let Some(e) = exclude { println!("filter exclude: {}", e); }
+    if let Some(i) = include {
+        println!("filter include: {}", i);
+    }
+    if let Some(e) = exclude {
+        println!("filter exclude: {}", e);
+    }
     println!("================================\n");
     println!(" weighted  churn   adds   dels  path");
     println!(" --------  ------  -----  ----- ----------------------------------------");
     for f in hs.iter() {
-        println!(" {:>8.1}  {:>6}  {:>5}  {:>5} {}", f.weighted, f.churn, f.adds, f.dels, f.path);
+        println!(
+            " {:>8.1}  {:>6}  {:>5}  {:>5} {}",
+            f.weighted, f.churn, f.adds, f.dels, f.path
+        );
     }
     Ok(())
 }
@@ -107,10 +133,19 @@ pub fn print_branches_table(stats: &crate::stats::branches::BranchStats) -> Resu
     Ok(())
 }
 
-pub fn print_coupling_table(stats: &crate::stats::coupling::CouplingStats, min_support: f64) -> Result<()> {
-    println!("🦀 File coupling analysis (min support: {:.3})", min_support);
+pub fn print_coupling_table(
+    stats: &crate::stats::coupling::CouplingStats,
+    min_support: f64,
+) -> Result<()> {
+    println!(
+        "🦀 File coupling analysis (min support: {:.3})",
+        min_support
+    );
     println!("=============================================\n");
-    println!("Analyzed {} files across {} commits\n", stats.files_analyzed, stats.total_commits);
+    println!(
+        "Analyzed {} files across {} commits\n",
+        stats.files_analyzed, stats.total_commits
+    );
     println!(" co-chg support   conf    lift  file_a → file_b");
     println!(" ------ ------- ------- ------- --------------------------------");
     for pair in &stats.pairs {
@@ -140,18 +175,29 @@ fn truncate_path(path: &str, max_len: usize) -> String {
 
 pub fn print_ownership_table(stats: &crate::stats::ownership::OwnershipStats) -> Result<()> {
     let mode_name = match stats.analysis_mode {
-        crate::stats::ownership::OwnershipMode::LastModified => "fast (last-modified approximation)",
+        crate::stats::ownership::OwnershipMode::LastModified => {
+            "fast (last-modified approximation)"
+        }
         crate::stats::ownership::OwnershipMode::BlameAnalysis => "expensive (blame analysis)",
     };
-    
+
     println!("🦀 Code ownership analysis ({})", mode_name);
     println!("============================================\n");
-    
+
     // Bus factor summary
-    println!("Bus Factor: {:.1} ({})", stats.bus_factor.score, stats.bus_factor.description);
-    println!("Top 3 contributors own {:.1}% of codebase", stats.bus_factor.top_contributors_coverage);
-    println!("Critical files (>80% single ownership): {}\n", stats.bus_factor.critical_files);
-    
+    println!(
+        "Bus Factor: {:.1} ({})",
+        stats.bus_factor.score, stats.bus_factor.description
+    );
+    println!(
+        "Top 3 contributors own {:.1}% of codebase",
+        stats.bus_factor.top_contributors_coverage
+    );
+    println!(
+        "Critical files (>80% single ownership): {}\n",
+        stats.bus_factor.critical_files
+    );
+
     // Overall ownership
     println!("Overall Ownership:");
     println!(" author                  files  lines   ownership%");
@@ -165,7 +211,7 @@ pub fn print_ownership_table(stats: &crate::stats::ownership::OwnershipStats) ->
             author.ownership_percentage
         );
     }
-    
+
     // Top files by ownership
     println!("\nTop Files by Ownership:");
     println!(" owner                   own%  path");
@@ -178,8 +224,11 @@ pub fn print_ownership_table(stats: &crate::stats::ownership::OwnershipStats) ->
             truncate_path(&file.path, 40)
         );
     }
-    
-    println!("\nAnalyzed {} of {} files total", stats.files_analyzed, stats.total_files_in_repo);
+
+    println!(
+        "\nAnalyzed {} of {} files total",
+        stats.files_analyzed, stats.total_files_in_repo
+    );
     Ok(())
 }
 
@@ -189,4 +238,53 @@ fn truncate_author_name(name: &str, max_len: usize) -> String {
     } else {
         format!("{}…", &name[..max_len.saturating_sub(1)])
     }
+}
+
+pub fn print_stability_table(stats: &crate::stats::stability::StabilityStats) -> Result<()> {
+    println!("🦀 Change stability analysis");
+    println!("============================\n");
+
+    // Summary
+    println!(
+        "Analyzed {} files over {} days",
+        stats.total_files_analyzed, stats.date_range_days
+    );
+    if let Some(author) = &stats.filters.author {
+        println!("Author filter: {}", author);
+    }
+    if let Some(dir) = &stats.filters.directory {
+        println!("Directory filter: {}", dir);
+    }
+    println!();
+
+    println!(
+        " stability path                           changes authors reverts fixes   avg-days primary-author     "
+    );
+    println!(
+        " --------- -------------------------------- ------- ------- ------- ------- -------- ------------------"
+    );
+
+    for file in &stats.files {
+        println!(
+            " {:>9.1} {:<32} {:>7} {:>7} {:>7} {:>7} {:>8.1} {}",
+            file.stability_score,
+            truncate_path(&file.path, 32),
+            file.changes,
+            file.authors,
+            file.reverts,
+            file.fixes,
+            file.avg_days_between_changes,
+            truncate_author_name(&file.primary_author, 18)
+        );
+    }
+
+    if stats.files.is_empty() {
+        println!("No files found matching the specified criteria.");
+    } else {
+        println!(
+            "\nNote: Lower stability scores indicate less stable files (more changes, reverts, fixes)."
+        );
+    }
+
+    Ok(())
 }

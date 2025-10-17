@@ -2,13 +2,14 @@ use clap::ValueEnum;
 use serde::Serialize;
 
 pub mod activity;
-pub mod churn;
 pub mod authors;
-pub mod calendar;
-pub mod hotspots;
 pub mod branches;
+pub mod calendar;
+pub mod churn;
 pub mod coupling;
+pub mod hotspots;
 pub mod ownership;
+pub mod stability;
 
 #[derive(Copy, Clone, Debug, Serialize, ValueEnum)]
 pub enum Bucket {

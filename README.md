@@ -50,6 +50,50 @@ gitcrab branches
 gitcrab log --count 20
 ```
 
+### Advanced Analytics
+
+#### Change Stability Analysis
+
+Analyze the stability of file changes to identify areas that may need attention:
+
+```bash
+# Analyze stability of all files (shows least stable first)
+gitcrab stats stability
+
+# Filter by author to assess consultant/new developer impact
+gitcrab stats stability --author "John Doe"
+
+# Focus on specific directory
+gitcrab stats stability --directory src/
+
+# Analyze recent changes only
+gitcrab stats stability --since 30d
+
+# Show top 10 most unstable files
+gitcrab stats stability --top 10
+
+# Get JSON output for further processing
+gitcrab stats stability --format json
+
+# Visual chart of stability scores
+gitcrab stats stability --format chart
+```
+
+**Stability Metrics Explained:**
+- **Stability Score**: Lower values indicate more stable files (fewer changes, reverts, fixes)
+- **Changes**: Total number of modifications to the file
+- **Authors**: Number of different contributors who modified the file
+- **Reverts**: Number of commits that reverted previous changes
+- **Fixes**: Number of commits identified as bug fixes
+- **Avg Days**: Average time between modifications
+- **Primary Author**: Developer who made the most changes to the file
+
+Use this analysis to:
+- Evaluate code quality from consultants or new team members
+- Identify files that may need refactoring or better testing
+- Spot patterns in problematic areas of the codebase
+- Make data-driven decisions about code review focus
+
 ### Analyzing Different Repositories
 
 ```bash
