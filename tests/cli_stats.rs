@@ -4,7 +4,7 @@ use std::process::Command;
 
 #[test]
 fn stats_repo_activity_json() {
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "stats", "repo", "--since", "30d", "--bucket", "week", "--format", "json",
     ]);
@@ -16,7 +16,7 @@ fn stats_repo_activity_json() {
 
 #[test]
 fn stats_repo_churn_json() {
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "stats", "repo", "--since", "90d", "--metric", "churn", "--bucket", "month", "--format",
         "json",
@@ -29,7 +29,7 @@ fn stats_repo_churn_json() {
 
 #[test]
 fn stats_authors_table() {
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "stats", "authors", "--since", "90d", "--top", "3", "--metric", "commits", "--format",
         "table",
@@ -41,7 +41,7 @@ fn stats_authors_table() {
 
 #[test]
 fn stats_calendar_json() {
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args(["stats", "calendar", "--since", "90d", "--format", "json"]);
     let out = cmd.output().expect("run");
     assert!(out.status.success());
@@ -51,7 +51,7 @@ fn stats_calendar_json() {
 
 #[test]
 fn stats_hotspots_table() {
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "stats", "hotspots", "--since", "90d", "--top", "3", "--format", "table",
     ]);

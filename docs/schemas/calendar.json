@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gitcrab.dev/schemas/calendar.json",
+  "$id": "https://crabgit.dev/schemas/calendar.json",
   "title": "Calendar Heatmap Output",
   "description": "GitCrab weekday/hour activity heatmap analysis",
   "type": "object",

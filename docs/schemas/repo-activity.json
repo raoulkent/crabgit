@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gitcrab.dev/schemas/repo-activity.json",
+  "$id": "https://crabgit.dev/schemas/repo-activity.json",
   "title": "Repository Activity Output",
   "description": "GitCrab repository activity analysis over time",
   "type": "object",

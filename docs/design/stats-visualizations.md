@@ -143,29 +143,29 @@ Below, metrics are grouped by entity. Each item suggests: definition, why it’s
 
 ## 7. CLI surface (proposed)
 - Repo-level
-  - gitcrab stats repo [--since 90d] [--until] [--bucket week] [--format json|table|chart]
-  - gitcrab stats calendar [--since 1y]
-  - gitcrab stats churn [--since 90d] [--paths 'src/**'] [--top 20]
+  - crabgit stats repo [--since 90d] [--until] [--bucket week] [--format json|table|chart]
+  - crabgit stats calendar [--since 1y]
+  - crabgit stats churn [--since 90d] [--paths 'src/**'] [--top 20]
 - Authors
-  - gitcrab stats authors [--since 90d] [--top 15] [--metric commits|churn]
+  - crabgit stats authors [--since 90d] [--top 15] [--metric commits|churn]
 - Files/Dirs
-  - gitcrab stats hotspots [--since 180d] [--top 50]
-  - gitcrab stats coupling [--since 180d] [--top 50] [--emit json]
+  - crabgit stats hotspots [--since 180d] [--top 50]
+  - crabgit stats coupling [--since 180d] [--top 50] [--emit json]
 - Branches
-  - gitcrab stats branches [--base main] [--since 90d]
+  - crabgit stats branches [--base main] [--since 90d]
 - Tags/Releases
-  - gitcrab stats releases [--since 2y]
+  - crabgit stats releases [--since 2y]
 
 Examples
 ```bash
 # Last year activity (weekly), table view
-gitcrab stats repo --since 1y --bucket week --format table
+crabgit stats repo --since 1y --bucket week --format table
 
 # Top churn files in src/, last 90d
-gitcrab stats hotspots --since 90d --paths 'src/**' --top 25
+crabgit stats hotspots --since 90d --paths 'src/**' --top 25
 
 # File coupling data as JSON for external plotting
-gitcrab stats coupling --since 180d --emit json > coupling.json
+crabgit stats coupling --since 180d --emit json > coupling.json
 ```
 
 ## 8. Computation and performance

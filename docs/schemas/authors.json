@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gitcrab.dev/schemas/authors.json",
+  "$id": "https://crabgit.dev/schemas/authors.json",
   "title": "Authors Analysis Output",
   "description": "GitCrab author statistics and contributions analysis",
   "type": "object",

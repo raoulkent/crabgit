@@ -34,13 +34,13 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo fmt
 
 # Run the tool (after building)
-./target/release/gitcrab
+./target/release/crabgit
 
 # Run TUI mode
-./target/release/gitcrab tui
+./target/release/crabgit tui
 
 # Show repository statistics
-./target/release/gitcrab stats
+./target/release/crabgit stats
 ```
 
 ### Testing Individual Components

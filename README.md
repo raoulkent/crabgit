@@ -1,4 +1,4 @@
-# gitcrab
+# crabgit
 
 A CLI tool for data-driven Git repository analysis. Make informed decisions about your codebase through statistical insights and interactive exploration. Blazingly fast 🦀
 
@@ -20,7 +20,7 @@ A CLI tool for data-driven Git repository analysis. Make informed decisions abou
 cargo build --release
 ```
 
-The binary will be available at `target/release/gitcrab`.
+The binary will be available at `target/release/crabgit`.
 
 ## Usage
 
@@ -28,26 +28,26 @@ The binary will be available at `target/release/gitcrab`.
 
 ```bash
 # Display comprehensive repository statistics
-gitcrab stats
+crabgit stats
 
 # Launch interactive TUI for detailed exploration
-gitcrab tui
+crabgit tui
 
 # Interactive menu-driven mode
-gitcrab interactive
+crabgit interactive
 ```
 
 ### Basic Repository Information
 
 ```bash
 # Show repository status (default behavior)
-gitcrab
+crabgit
 
 # List all branches
-gitcrab branches
+crabgit branches
 
 # Show recent commits
-gitcrab log --count 20
+crabgit log --count 20
 ```
 
 ### Advanced Analytics
@@ -58,16 +58,16 @@ Track development patterns and commit frequency over time:
 
 ```bash
 # Repository activity over last 90 days (weekly buckets)
-gitcrab stats repo --since 90d --bucket week
+crabgit stats repo --since 90d --bucket week
 
 # Daily commit activity for current month
-gitcrab stats repo --since 30d --bucket day --format table
+crabgit stats repo --since 30d --bucket day --format table
 
 # Monthly activity trend for the past year
-gitcrab stats repo --since 365d --bucket month --format chart
+crabgit stats repo --since 365d --bucket month --format chart
 
 # Code churn (lines added/deleted) analysis
-gitcrab stats repo --metric churn --since 180d
+crabgit stats repo --metric churn --since 180d
 ```
 
 #### Author and Contributor Analysis
@@ -76,16 +76,16 @@ Understand team contributions and collaboration patterns:
 
 ```bash
 # Top 15 contributors by commit count
-gitcrab stats authors --top 15 --metric commits
+crabgit stats authors --top 15 --metric commits
 
 # Top contributors by code churn (lines changed)
-gitcrab stats authors --metric churn --format table
+crabgit stats authors --metric churn --format table
 
 # Author activity excluding merge commits
-gitcrab stats authors --no-merges --since 90d
+crabgit stats authors --no-merges --since 90d
 
 # JSON output for data processing
-gitcrab stats authors --format json --top 20
+crabgit stats authors --format json --top 20
 ```
 
 #### Activity Heatmaps
@@ -94,13 +94,13 @@ Visualize when development activity happens:
 
 ```bash
 # Weekday/hour activity heatmap
-gitcrab stats calendar --since 365d
+crabgit stats calendar --since 365d
 
 # Activity patterns for recent months
-gitcrab stats calendar --since 90d --format chart
+crabgit stats calendar --since 90d --format chart
 
 # JSON format for external visualization
-gitcrab stats calendar --format json > heatmap.json
+crabgit stats calendar --format json > heatmap.json
 ```
 
 #### File Hotspot Analysis
@@ -109,16 +109,16 @@ Identify files with high change frequency using recency decay:
 
 ```bash
 # Top 25 hotspots with 90-day decay
-gitcrab stats hotspots --since 180d --top 25
+crabgit stats hotspots --since 180d --top 25
 
 # Focus on source code files only
-gitcrab stats hotspots --include 'src/**' --half-life-days 60
+crabgit stats hotspots --include 'src/**' --half-life-days 60
 
 # Exclude test files from analysis
-gitcrab stats hotspots --exclude 'tests/**' --format table
+crabgit stats hotspots --exclude 'tests/**' --format table
 
 # Chart visualization of hotspots
-gitcrab stats hotspots --format chart --top 15
+crabgit stats hotspots --format chart --top 15
 ```
 
 #### Branch Analysis
@@ -127,13 +127,13 @@ Compare branch activity and divergence:
 
 ```bash
 # Branch analysis vs main branch
-gitcrab stats branches --base origin/main
+crabgit stats branches --base origin/main
 
 # Activity across all branches (last 30 days)
-gitcrab stats branches --since 30d --no-merges
+crabgit stats branches --since 30d --no-merges
 
 # JSON output for CI/CD integration
-gitcrab stats branches --format json
+crabgit stats branches --format json
 ```
 
 #### Code Coupling Analysis
@@ -142,13 +142,13 @@ Find files that change together frequently:
 
 ```bash
 # Top 20 coupled file pairs
-gitcrab stats coupling --top 20 --min-support 0.05
+crabgit stats coupling --top 20 --min-support 0.05
 
 # Coupling analysis for recent changes
-gitcrab stats coupling --since 90d --window-size 1000
+crabgit stats coupling --since 90d --window-size 1000
 
 # High-confidence coupling relationships
-gitcrab stats coupling --min-support 0.1 --format json
+crabgit stats coupling --min-support 0.1 --format json
 ```
 
 #### Code Ownership Analysis
@@ -157,13 +157,13 @@ Understand who owns what parts of the codebase:
 
 ```bash
 # Fast ownership approximation (last-modified)
-gitcrab stats ownership --top 30
+crabgit stats ownership --top 30
 
 # Expensive but accurate blame-based analysis
-gitcrab stats ownership --expensive --top 20
+crabgit stats ownership --expensive --top 20
 
 # Focus on specific file patterns
-gitcrab stats ownership --include '*.rs' --exclude 'target/*'
+crabgit stats ownership --include '*.rs' --exclude 'target/*'
 ```
 
 #### Change Stability Analysis
@@ -172,16 +172,16 @@ Analyze the stability of file changes to identify areas that may need attention:
 
 ```bash
 # Analyze stability of all files (shows least stable first)
-gitcrab stats stability --top 25
+crabgit stats stability --top 25
 
 # Filter by author to assess consultant/new developer impact
-gitcrab stats stability --author "John Doe" --since 90d
+crabgit stats stability --author "John Doe" --since 90d
 
 # Focus on specific directory
-gitcrab stats stability --directory src/ --no-merges
+crabgit stats stability --directory src/ --no-merges
 
 # Get JSON output for further processing
-gitcrab stats stability --format json --top 15
+crabgit stats stability --format json --top 15
 ```
 
 **Stability Metrics Explained:**
@@ -199,10 +199,10 @@ Analyze release patterns and tag-based metrics:
 
 ```bash
 # Analyze last 10 releases
-gitcrab stats releases --limit 10
+crabgit stats releases --limit 10
 
 # All releases with detailed metrics
-gitcrab stats releases --format json
+crabgit stats releases --format json
 ```
 
 ### Output Formats
@@ -222,22 +222,22 @@ GitCrab supports multiple output formats for different use cases:
 ```bash
 #!/bin/bash
 # Generate release metrics for CI
-gitcrab stats releases --format json > metrics/releases.json
-gitcrab stats hotspots --format json > metrics/hotspots.json
-gitcrab stats authors --format json > metrics/contributors.json
+crabgit stats releases --format json > metrics/releases.json
+crabgit stats hotspots --format json > metrics/hotspots.json
+crabgit stats authors --format json > metrics/contributors.json
 ```
 
 #### Data Analysis Workflows
 
 ```bash
 # Extract commit counts for analysis
-gitcrab stats repo --format json | jq '.series[].commits'
+crabgit stats repo --format json | jq '.series[].commits'
 
 # Get top author commit counts
-gitcrab stats authors --format json | jq '.authors[] | {name: .author, commits: .commits}'
+crabgit stats authors --format json | jq '.authors[] | {name: .author, commits: .commits}'
 
 # Find files with high churn
-gitcrab stats hotspots --format json | jq '.hotspots[0:5] | .[] | .path'
+crabgit stats hotspots --format json | jq '.hotspots[0:5] | .[] | .path'
 ```
 
 ### Performance Optimization
@@ -246,23 +246,23 @@ For large repositories, GitCrab provides several optimization options:
 
 ```bash
 # Use caching for repeated analyses
-gitcrab --no-cache stats repo  # Disable cache
+crabgit --no-cache stats repo  # Disable cache
 
 # Control parallel processing
-gitcrab --max-threads 4 stats coupling
+crabgit --max-threads 4 stats coupling
 
 # Debug performance timing
-gitcrab --debug stats hotspots --since 180d
+crabgit --debug stats hotspots --since 180d
 ```
 
 ### Analyzing Different Repositories
 
 ```bash
 # Analyze a specific repository
-gitcrab --repo /path/to/repo stats
+crabgit --repo /path/to/repo stats
 
 # Launch TUI for a different repository
-gitcrab --repo /path/to/repo tui
+crabgit --repo /path/to/repo tui
 ```
 
 ## What GitCrab Reveals
@@ -280,7 +280,7 @@ Use these insights to make informed decisions about code reviews, refactoring pr
 ### Help
 
 ```bash
-gitcrab --help
+crabgit --help
 ```
 
 ## Development

@@ -2,12 +2,12 @@ use anyhow::Result;
 use std::fs;
 use tempfile::TempDir;
 
-use gitcrab::cache::{CacheConfig, CachedCommitStats, CommitStatsCache};
-use gitcrab::config::{
+use crabgit::cache::{CacheConfig, CachedCommitStats, CommitStatsCache};
+use crabgit::config::{
     ConfigOverrides, DebugConfig, GlobalConfig, ParallelConfig, parse_duration_to_days,
 };
-use gitcrab::parallel::{BatchProcessor, MemorySafeIterator, ParallelProcessor};
-use gitcrab::telemetry::{DebugLogger, PerfMetrics, Timer};
+use crabgit::parallel::{BatchProcessor, MemorySafeIterator, ParallelProcessor};
+use crabgit::telemetry::{DebugLogger, PerfMetrics, Timer};
 
 #[test]
 fn test_cache_integration() -> Result<()> {
