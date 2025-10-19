@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 BENCHMARK_DIR="$(mktemp -d)"
-GITCRAB_BIN="${GITCRAB_BIN:-./target/release/gitcrab}"
+GITCRAB_BIN="${GITCRAB_BIN:-./target/release/crabgit}"
 OUTPUT_FILE="${OUTPUT_FILE:-benchmark_results.json}"
 
 echo -e "${BLUE}🦀 GitCrab Performance Benchmark${NC}"
@@ -40,7 +40,7 @@ create_small_repo() {
     
     git init --quiet
     git config user.name "Benchmark User"
-    git config user.email "benchmark@gitcrab.dev"
+    git config user.email "benchmark@crabgit.dev"
     
     # Create ~50 commits
     for i in {1..50}; do
@@ -66,7 +66,7 @@ create_medium_repo() {
     
     git init --quiet
     git config user.name "Benchmark User"
-    git config user.email "benchmark@gitcrab.dev"
+    git config user.email "benchmark@crabgit.dev"
     
     # Create directory structure
     mkdir -p src/{components,utils,tests} docs scripts
@@ -115,7 +115,7 @@ create_large_repo() {
     
     git init --quiet
     git config user.name "Benchmark User"
-    git config user.email "benchmark@gitcrab.dev"
+    git config user.email "benchmark@crabgit.dev"
     
     # Create realistic project structure
     mkdir -p {src,tests,docs,scripts,config}/{backend,frontend,mobile,shared}
@@ -271,7 +271,7 @@ main() {
 {
   "benchmark_info": {
     "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-    "gitcrab_version": "$($GITCRAB_BIN --version 2>/dev/null || echo 'unknown')",
+    "crabgit_version": "$($GITCRAB_BIN --version 2>/dev/null || echo 'unknown')",
     "system_info": {
       "os": "$(uname -s)",
       "arch": "$(uname -m)",

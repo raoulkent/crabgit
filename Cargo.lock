@@ -536,7 +536,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitcrab"
+name = "crabgit"
 version = "0.1.0"
 dependencies = [
  "anyhow",

@@ -195,7 +195,7 @@ pub struct CacheStats {
 pub fn get_default_cache_dir() -> PathBuf {
     dirs::cache_dir()
         .unwrap_or_else(std::env::temp_dir)
-        .join("gitcrab")
+        .join("crabgit")
         .join("commit_stats")
 }
 
@@ -218,7 +218,7 @@ mod tests {
         let config = CacheConfig::default();
         assert!(config.enabled);
         assert_eq!(config.max_size_mb, 100);
-        assert!(config.cache_dir.to_string_lossy().contains("gitcrab"));
+        assert!(config.cache_dir.to_string_lossy().contains("crabgit"));
     }
 
     #[test]

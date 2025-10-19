@@ -16,9 +16,9 @@ GitCrab provides structured JSON output for programmatic consumption and integra
 
 | Schema | Description | Command Example |
 |--------|-------------|-----------------|
-| [`repo-activity.json`](./repo-activity.json) | Commit activity over time | `gitcrab stats repo --format json` |
-| [`authors.json`](./authors.json) | Author contribution statistics | `gitcrab stats authors --format json` |
-| [`calendar.json`](./calendar.json) | Weekday/hour activity heatmap | `gitcrab stats calendar --format json` |
+| [`repo-activity.json`](./repo-activity.json) | Commit activity over time | `crabgit stats repo --format json` |
+| [`authors.json`](./authors.json) | Author contribution statistics | `crabgit stats authors --format json` |
+| [`calendar.json`](./calendar.json) | Weekday/hour activity heatmap | `crabgit stats calendar --format json` |
 
 ### Planned Schemas (Future Releases)
 
@@ -35,7 +35,7 @@ GitCrab provides structured JSON output for programmatic consumption and integra
 
 ```bash
 # Get last 90 days of weekly commit activity
-gitcrab stats repo --since 90d --bucket week --format json > activity.json
+crabgit stats repo --since 90d --bucket week --format json > activity.json
 ```
 
 Example output structure:
@@ -61,14 +61,14 @@ Example output structure:
 
 ```bash
 # Get top 10 authors by commit count
-gitcrab stats authors --top 10 --metric commits --format json > authors.json
+crabgit stats authors --top 10 --metric commits --format json > authors.json
 ```
 
 ### Calendar Heatmap
 
 ```bash
 # Activity pattern by weekday and hour
-gitcrab stats calendar --since 365d --format json > heatmap.json
+crabgit stats calendar --since 365d --format json > heatmap.json
 ```
 
 ## Schema Validation
@@ -89,7 +89,7 @@ import subprocess
 
 # Run GitCrab analysis
 result = subprocess.run([
-    'gitcrab', 'stats', 'authors', 
+    'crabgit', 'stats', 'authors', 
     '--format', 'json', '--top', '20'
 ], capture_output=True, text=True)
 
@@ -107,7 +107,7 @@ print(f"Top contributor: {top_author['author']} ({top_author['commits']} commits
 const { execSync } = require('child_process');
 
 // Get repository activity data
-const output = execSync('gitcrab stats repo --since 90d --format json', { encoding: 'utf8' });
+const output = execSync('crabgit stats repo --since 90d --format json', { encoding: 'utf8' });
 const data = JSON.parse(output);
 
 // Process time series
@@ -119,13 +119,13 @@ console.log(`Total commits in last 90 days: ${totalCommits}`);
 
 ```bash
 # Extract commit counts from activity data
-gitcrab stats repo --format json | jq '.series[].commits'
+crabgit stats repo --format json | jq '.series[].commits'
 
 # Get author names and commit counts
-gitcrab stats authors --format json | jq '.authors[] | {name: .author, commits: .commits}'
+crabgit stats authors --format json | jq '.authors[] | {name: .author, commits: .commits}'
 
 # Find peak activity hour from calendar
-gitcrab stats calendar --format json | jq '.matrix | flatten | max'
+crabgit stats calendar --format json | jq '.matrix | flatten | max'
 ```
 
 ## Schema Development

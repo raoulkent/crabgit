@@ -12,14 +12,14 @@ Phase 0 — Scaffolding and foundations (1–2 days)
 - Introduce StatsContext and bucketing helpers (time windows, bucket sizes).
 - Add output selection: --format json|table|chart (ASCII). Implement minimal writers.
 - Tests: unit tests for bucketing and format selection.
-- Acceptance: gitcrab stats repo runs and prints a placeholder JSON with context.
+- Acceptance: crabgit stats repo runs and prints a placeholder JSON with context.
 
 Phase 1 — Activity timeseries (commits) (0.5–1 day)
 - Implement commit revwalk filtered by [since, until], optional branches/paths.
 - Aggregate per bucket (day/week/month). Add --bucket with validation.
 - Outputs: JSON series + table; ASCII sparkline for quick glance.
 - Tests: synthetic commits fixture; verify counts per bucket.
-- Acceptance: gitcrab stats repo --since 90d prints commits/bucket in <2s on medium repos.
+- Acceptance: crabgit stats repo --since 90d prints commits/bucket in <2s on medium repos.
 
 Phase 2 — Churn timeseries (adds/dels) (1–2 days)
 - Compute per-commit numstat (adds, dels); exclude binary; respect path filters.

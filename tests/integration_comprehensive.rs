@@ -69,7 +69,7 @@ fn create_test_repo() -> (TempDir, std::path::PathBuf) {
 fn test_basic_repository_status() {
     let (_temp_dir, repo_path) = create_test_repo();
 
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args(["--repo", repo_path.to_str().unwrap()]);
 
     cmd.assert()
@@ -83,7 +83,7 @@ fn test_basic_repository_status() {
 fn test_branches_listing() {
     let (_temp_dir, repo_path) = create_test_repo();
 
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args(["--repo", repo_path.to_str().unwrap(), "branches"]);
 
     cmd.assert()
@@ -96,7 +96,7 @@ fn test_branches_listing() {
 fn test_log_output() {
     let (_temp_dir, repo_path) = create_test_repo();
 
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args(["--repo", repo_path.to_str().unwrap(), "log", "--count", "3"]);
 
     cmd.assert()
@@ -110,7 +110,7 @@ fn test_log_output() {
 fn test_stats_repo_activity_json_validation() {
     let (_temp_dir, repo_path) = create_test_repo();
 
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "--repo",
         repo_path.to_str().unwrap(),
@@ -145,7 +145,7 @@ fn test_stats_authors_comprehensive() {
     let (_temp_dir, repo_path) = create_test_repo();
 
     // Test table format
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "--repo",
         repo_path.to_str().unwrap(),
@@ -164,7 +164,7 @@ fn test_stats_authors_comprehensive() {
         .stdout(predicate::str::contains("Test User"));
 
     // Test JSON format
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "--repo",
         repo_path.to_str().unwrap(),
@@ -187,7 +187,7 @@ fn test_stats_authors_comprehensive() {
 fn test_stats_calendar_output() {
     let (_temp_dir, repo_path) = create_test_repo();
 
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "--repo",
         repo_path.to_str().unwrap(),
@@ -218,7 +218,7 @@ fn test_stats_calendar_output() {
 fn test_stats_hotspots_analysis() {
     let (_temp_dir, repo_path) = create_test_repo();
 
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "--repo",
         repo_path.to_str().unwrap(),
@@ -233,7 +233,7 @@ fn test_stats_hotspots_analysis() {
     cmd.assert().success();
 
     // Test JSON output
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "--repo",
         repo_path.to_str().unwrap(),
@@ -256,7 +256,7 @@ fn test_stats_hotspots_analysis() {
 fn test_stats_branches_analysis() {
     let (_temp_dir, repo_path) = create_test_repo();
 
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "--repo",
         repo_path.to_str().unwrap(),
@@ -273,7 +273,7 @@ fn test_stats_branches_analysis() {
 fn test_stats_coupling_analysis() {
     let (_temp_dir, repo_path) = create_test_repo();
 
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "--repo",
         repo_path.to_str().unwrap(),
@@ -292,7 +292,7 @@ fn test_stats_coupling_analysis() {
 fn test_stats_ownership_analysis() {
     let (_temp_dir, repo_path) = create_test_repo();
 
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "--repo",
         repo_path.to_str().unwrap(),
@@ -311,7 +311,7 @@ fn test_stats_ownership_analysis() {
 fn test_stats_stability_analysis() {
     let (_temp_dir, repo_path) = create_test_repo();
 
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "--repo",
         repo_path.to_str().unwrap(),
@@ -337,7 +337,7 @@ fn test_stats_releases_analysis() {
         .output()
         .expect("git tag");
 
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "--repo",
         repo_path.to_str().unwrap(),
@@ -355,7 +355,7 @@ fn test_interactive_mode_help() {
     // We can't fully test interactive mode, but we can test that it starts
     let (_temp_dir, repo_path) = create_test_repo();
 
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args(["--repo", repo_path.to_str().unwrap(), "--help"]);
 
     cmd.assert().success().stdout(predicate::str::contains(
@@ -369,7 +369,7 @@ fn test_format_options_validation() {
 
     // Test all valid formats
     for format in ["json", "table", "chart"] {
-        let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+        let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
         cmd.args([
             "--repo",
             repo_path.to_str().unwrap(),
@@ -391,7 +391,7 @@ fn test_time_window_parsing() {
     let time_windows = ["30d", "12w", "6m", "1y"];
 
     for window in time_windows {
-        let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+        let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
         cmd.args([
             "--repo",
             repo_path.to_str().unwrap(),
@@ -413,7 +413,7 @@ fn test_bucket_size_options() {
 
     // Test all bucket sizes
     for bucket in ["day", "week", "month"] {
-        let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+        let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
         cmd.args([
             "--repo",
             repo_path.to_str().unwrap(),
@@ -431,7 +431,7 @@ fn test_bucket_size_options() {
 
 #[test]
 fn test_error_handling_invalid_repo() {
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args(["--repo", "/nonexistent/path"]);
 
     cmd.assert()
@@ -444,7 +444,7 @@ fn test_performance_flags() {
     let (_temp_dir, repo_path) = create_test_repo();
 
     // Test debug flag
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "--repo",
         repo_path.to_str().unwrap(),
@@ -456,7 +456,7 @@ fn test_performance_flags() {
     cmd.assert().success();
 
     // Test no-cache flag
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "--repo",
         repo_path.to_str().unwrap(),
@@ -468,7 +468,7 @@ fn test_performance_flags() {
     cmd.assert().success();
 
     // Test max-threads flag
-    let mut cmd = Command::cargo_bin("gitcrab").expect("bin exists");
+    let mut cmd = Command::cargo_bin("crabgit").expect("bin exists");
     cmd.args([
         "--repo",
         repo_path.to_str().unwrap(),

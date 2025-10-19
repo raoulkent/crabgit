@@ -15,13 +15,13 @@ GitCrab follows semantic versioning for CLI stability:
 The following CLI elements are considered stable and will not change without a major version bump:
 
 ### Core Commands
-- `gitcrab` (default status display)
-- `gitcrab status` - Repository status information
-- `gitcrab branches` - Branch listing
-- `gitcrab log` - Commit history
-- `gitcrab stats` - Statistical analysis (with subcommands)
-- `gitcrab tui` - Terminal UI mode  
-- `gitcrab interactive` - Interactive menu mode
+- `crabgit` (default status display)
+- `crabgit status` - Repository status information
+- `crabgit branches` - Branch listing
+- `crabgit log` - Commit history
+- `crabgit stats` - Statistical analysis (with subcommands)
+- `crabgit tui` - Terminal UI mode  
+- `crabgit interactive` - Interactive menu mode
 
 ### Global Options
 - `--repo <PATH>` - Repository path specification
@@ -97,7 +97,7 @@ If you encounter CLI issues or have suggestions:
 1. Check if the behavior is documented in this stability guide
 2. Review the help text with `--help` for current behavior
 3. Open an issue with:
-   - GitCrab version (`gitcrab --version`)
+   - GitCrab version (`crabgit --version`)
    - Full command line used
    - Expected vs. actual behavior
    - Sample output if relevant

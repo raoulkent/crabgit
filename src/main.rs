@@ -29,35 +29,35 @@ mod parallel;
 mod stats;
 mod telemetry;
 #[derive(Parser)]
-#[command(name = "gitcrab")]
+#[command(name = "crabgit")]
 #[command(about = "CLI tool for inspecting Git repos. Blazingly fast 🦀")]
 #[command(
     long_about = "GitCrab provides data-driven insights into Git repositories through statistical analysis and interactive exploration.
 
 EXAMPLES:
     # Show repository status (default)
-    gitcrab
+    crabgit
     
     # Comprehensive repository statistics
-    gitcrab stats
+    crabgit stats
     
     # Analyze commit activity over last 90 days
-    gitcrab stats repo --since 90d --format table
+    crabgit stats repo --since 90d --format table
     
     # Find top contributors by commits
-    gitcrab stats authors --top 10 --metric commits
+    crabgit stats authors --top 10 --metric commits
     
     # Identify file hotspots with high churn
-    gitcrab stats hotspots --since 180d --top 25
+    crabgit stats hotspots --since 180d --top 25
     
     # Analyze code stability and change patterns
-    gitcrab stats stability --author \"John Doe\" --top 15
+    crabgit stats stability --author \"John Doe\" --top 15
     
     # Interactive Terminal UI for exploration
-    gitcrab tui
+    crabgit tui
     
     # Analyze a different repository
-    gitcrab --repo /path/to/repo stats authors"
+    crabgit --repo /path/to/repo stats authors"
 )]
 #[command(version)]
 struct Cli {
@@ -106,35 +106,35 @@ enum Commands {
 
 EXAMPLES:
     # Basic repository statistics (default)
-    gitcrab stats
+    crabgit stats
     
     # Repository activity over time
-    gitcrab stats repo --since 90d --bucket week
+    crabgit stats repo --since 90d --bucket week
     
     # Top authors by commits or churn
-    gitcrab stats authors --top 15 --metric commits
-    gitcrab stats authors --metric churn --format json
+    crabgit stats authors --top 15 --metric commits
+    crabgit stats authors --metric churn --format json
     
     # Activity heatmap by weekday/hour
-    gitcrab stats calendar --since 180d
+    crabgit stats calendar --since 180d
     
     # File hotspots with recency decay
-    gitcrab stats hotspots --half-life-days 60 --include 'src/**'
+    crabgit stats hotspots --half-life-days 60 --include 'src/**'
     
     # Branch analysis and comparison
-    gitcrab stats branches --base origin/main
+    crabgit stats branches --base origin/main
     
     # File coupling and co-change analysis
-    gitcrab stats coupling --min-support 0.05 --top 20
+    crabgit stats coupling --min-support 0.05 --top 20
     
     # Code ownership patterns
-    gitcrab stats ownership --expensive --top 30
+    crabgit stats ownership --expensive --top 30
     
     # Change stability analysis
-    gitcrab stats stability --directory src/ --no-merges
+    crabgit stats stability --directory src/ --no-merges
     
     # Release and tag metrics
-    gitcrab stats releases --limit 10"
+    crabgit stats releases --limit 10"
     )]
     Stats {
         #[command(subcommand)]
@@ -156,7 +156,7 @@ Navigation:
 - 'q' to quit
 
 EXAMPLE:
-    gitcrab tui"
+    crabgit tui"
     )]
     Tui,
 
@@ -177,7 +177,7 @@ Ideal for:
 - When you're unsure which analysis to run
 
 EXAMPLE:
-    gitcrab interactive"
+    crabgit interactive"
     )]
     Interactive,
 }

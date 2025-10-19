@@ -201,7 +201,7 @@ pub struct ConfigOverrides {
 fn get_config_file_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")))
-        .join("gitcrab")
+        .join("crabgit")
         .join("config.toml")
 }
 
