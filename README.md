@@ -209,10 +209,10 @@ crabgit stats releases --format json
 
 GitCrab supports multiple output formats for different use cases:
 
-| Format | Use Case | Example |
-|--------|----------|---------|
-| `table` | Human-readable terminal output | `--format table` |
-| `json` | Programmatic processing, APIs | `--format json` |
+| Format  | Use Case                         | Example          |
+| ------- | -------------------------------- | ---------------- |
+| `table` | Human-readable terminal output   | `--format table` |
+| `json`  | Programmatic processing, APIs    | `--format json`  |
 | `chart` | ASCII visualizations, dashboards | `--format chart` |
 
 ### Integration Examples

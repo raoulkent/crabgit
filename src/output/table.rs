@@ -11,12 +11,22 @@ fn fmt_bucket(ts: i64) -> String {
     dt.date().to_string() // ISO 8601 YYYY-MM-DD
 }
 
+fn print_filter_lines(ctx: &StatsContext) {
+    if let Some(include) = &ctx.include {
+        println!("include: {}", include);
+    }
+    if let Some(exclude) = &ctx.exclude {
+        println!("exclude: {}", exclude);
+    }
+}
+
 pub fn print_repo_activity(ctx: &StatsContext, series: &[ActivityPoint]) -> Result<()> {
     println!("🦀 Repo activity (commits per {:?})", ctx.bucket);
     println!("=====================================\n");
     println!("path   : {}", ctx.repo_path);
     println!("since  : {}", ctx.since.as_deref().unwrap_or("-"));
     println!("until  : {}", ctx.until.as_deref().unwrap_or("-"));
+    print_filter_lines(ctx);
     println!("\n bucket            commits");
     println!(" ----------------  -------");
     for p in series.iter().take(20) {
@@ -34,6 +44,7 @@ pub fn print_repo_churn(ctx: &StatsContext, series: &[ChurnPoint]) -> Result<()>
     println!("path   : {}", ctx.repo_path);
     println!("since  : {}", ctx.since.as_deref().unwrap_or("-"));
     println!("until  : {}", ctx.until.as_deref().unwrap_or("-"));
+    print_filter_lines(ctx);
     println!("\n bucket            adds     dels");
     println!(" ----------------  -------  -------");
     for p in series.iter().take(20) {
@@ -87,18 +98,12 @@ pub fn print_calendar_table(matrix: &[[u64; 24]; 7]) -> Result<()> {
 }
 
 pub fn print_hotspots_table(
+    ctx: &StatsContext,
     hs: &[crate::stats::hotspots::FileHotspot],
     half_life_days: f64,
-    include: Option<&str>,
-    exclude: Option<&str>,
 ) -> Result<()> {
     println!("🦀 Hotspots (half-life: {:.1}d)", half_life_days);
-    if let Some(i) = include {
-        println!("filter include: {}", i);
-    }
-    if let Some(e) = exclude {
-        println!("filter exclude: {}", e);
-    }
+    print_filter_lines(ctx);
     println!("================================\n");
     println!(" weighted  churn   adds   dels  path");
     println!(" --------  ------  -----  ----- ----------------------------------------");

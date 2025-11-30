@@ -1,6 +1,8 @@
 use anyhow::Result;
-use git2::{Repository, Sort};
+use git2::Repository;
 use serde::Serialize;
+
+use crate::stats::{StatsContext, path_filter};
 
 #[derive(Debug, Serialize, Clone)]
 pub struct CalendarHeatmap {
@@ -8,36 +10,13 @@ pub struct CalendarHeatmap {
     pub matrix: [[u64; 24]; 7],
 }
 
-pub fn compute_calendar(
-    repo: &Repository,
-    since: Option<&str>,
-    until: Option<&str>,
-) -> Result<CalendarHeatmap> {
-    let (since_ts, until_ts) = (
-        crate::stats::activity::parse_instant(since),
-        crate::stats::activity::parse_instant(until),
-    );
-
+pub fn compute_calendar(repo: &Repository, ctx: &StatsContext) -> Result<CalendarHeatmap> {
+    let filtered_commits = path_filter::FilteredCommits::new(repo, ctx)?;
     let mut matrix = [[0u64; 24]; 7];
 
-    let mut revwalk = repo.revwalk()?;
-    revwalk.push_head()?;
-    revwalk.set_sorting(Sort::TIME)?;
-
-    for oid in revwalk {
-        let oid = oid?;
-        let commit = repo.find_commit(oid)?;
+    for commit_result in filtered_commits {
+        let commit = commit_result?;
         let ts = commit.time().seconds();
-        if let Some(since) = since_ts
-            && ts < since
-        {
-            continue;
-        }
-        if let Some(until) = until_ts
-            && ts > until
-        {
-            continue;
-        }
 
         let dt = time::OffsetDateTime::from_unix_timestamp(ts)
             .unwrap_or(time::OffsetDateTime::UNIX_EPOCH);

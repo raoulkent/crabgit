@@ -247,6 +247,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "crabgit"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "assert_cmd",
+ "clap",
+ "clap_mangen",
+ "crossterm",
+ "dialoguer",
+ "dirs",
+ "git2",
+ "globset",
+ "predicates",
+ "ratatui",
+ "rayon",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "time",
+ "toml",
+ "walkdir",
+]
+
+[[package]]
 name = "crossbeam-deque"
 version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -533,31 +558,6 @@ dependencies = [
  "openssl-probe",
  "openssl-sys",
  "url",
-]
-
-[[package]]
-name = "crabgit"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "assert_cmd",
- "clap",
- "clap_mangen",
- "crossterm",
- "dialoguer",
- "dirs",
- "git2",
- "globset",
- "predicates",
- "ratatui",
- "rayon",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "time",
- "toml",
- "walkdir",
 ]
 
 [[package]]

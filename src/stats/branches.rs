@@ -2,6 +2,8 @@ use anyhow::Result;
 use git2::{Branch, BranchType, Oid, Repository};
 use serde::Serialize;
 
+use crate::stats::{StatsContext, path_filter};
+
 #[derive(Debug, Clone, Serialize)]
 pub struct BranchMetrics {
     pub name: String,
@@ -26,15 +28,14 @@ pub struct BranchStats {
 pub fn analyze_branches(
     repo: &Repository,
     base_branch: Option<&str>,
-    since: Option<&str>,
-    until: Option<&str>,
-    no_merges: bool,
+    ctx: &StatsContext,
 ) -> Result<BranchStats> {
     // Determine base branch
     let base_ref = determine_base_branch(repo, base_branch)?;
     let base_oid = base_ref
         .target()
         .ok_or_else(|| anyhow::anyhow!("Base branch has no target OID"))?;
+    let filters = path_filter::CompiledPathFilters::from_context(ctx)?;
 
     let mut branch_metrics = Vec::new();
     let branches = repo.branches(None)?;
@@ -53,16 +54,9 @@ pub fn analyze_branches(
             continue;
         }
 
-        if let Ok(metrics) = compute_branch_metrics(
-            repo,
-            &branch,
-            branch_type,
-            &name,
-            base_oid,
-            since,
-            until,
-            no_merges,
-        ) {
+        if let Ok(metrics) =
+            compute_branch_metrics(repo, &branch, branch_type, &name, base_oid, ctx, &filters)
+        {
             branch_metrics.push(metrics);
         }
     }
@@ -108,9 +102,8 @@ fn compute_branch_metrics(
     branch_type: BranchType,
     name: &str,
     base_oid: Oid,
-    since: Option<&str>,
-    until: Option<&str>,
-    no_merges: bool,
+    ctx: &StatsContext,
+    filters: &path_filter::CompiledPathFilters,
 ) -> Result<BranchMetrics> {
     let branch_ref = branch.get();
     let branch_oid = branch_ref
@@ -127,7 +120,7 @@ fn compute_branch_metrics(
 
     // Compute activity metrics for this branch
     let (commits, churn_adds, churn_dels, merge_ratio) =
-        compute_branch_activity(repo, branch_oid, base_oid, since, until, no_merges)?;
+        compute_branch_activity(repo, branch_oid, base_oid, ctx, filters)?;
 
     Ok(BranchMetrics {
         name: name.to_string(),
@@ -150,59 +143,35 @@ fn compute_branch_activity(
     repo: &Repository,
     branch_oid: Oid,
     base_oid: Oid,
-    since: Option<&str>,
-    until: Option<&str>,
-    no_merges: bool,
+    ctx: &StatsContext,
+    filters: &path_filter::CompiledPathFilters,
 ) -> Result<(u64, u64, u64, f64)> {
-    let mut revwalk = repo.revwalk()?;
-    revwalk.push(branch_oid)?;
-    revwalk.hide(base_oid)?;
-
-    // Parse time filters
-    let since_time = crate::stats::activity::parse_instant(since);
-    let until_time = crate::stats::activity::parse_instant(until);
+    let mut filtered_commits = path_filter::FilteredCommits::from_oid(repo, branch_oid, ctx)?;
+    filtered_commits.hide(base_oid)?;
 
     let mut commits = 0u64;
     let mut merge_commits = 0u64;
     let mut total_adds = 0u64;
     let mut total_dels = 0u64;
 
-    for oid_result in revwalk {
-        let oid = oid_result?;
-        let commit = repo.find_commit(oid)?;
-
-        // Apply time filters
-        let commit_time = commit.time().seconds();
-        if let Some(since) = since_time {
-            if commit_time < since {
-                continue;
-            }
-        }
-        if let Some(until) = until_time {
-            if commit_time > until {
-                continue;
-            }
-        }
+    for commit_result in filtered_commits {
+        let commit = commit_result?;
 
         let is_merge = commit.parent_count() > 1;
+        let Some((adds, dels)) = path_filter::compute_commit_churn(repo, &commit, filters)? else {
+            continue;
+        };
+
         if is_merge {
             merge_commits += 1;
         }
 
-        if no_merges && is_merge {
-            continue;
-        }
-
         commits += 1;
-
-        // Compute churn for this commit
-        if let Ok((adds, dels)) = compute_commit_churn(repo, &commit) {
-            total_adds += adds;
-            total_dels += dels;
-        }
+        total_adds += adds;
+        total_dels += dels;
     }
 
-    let total_commits = commits + if no_merges { 0 } else { merge_commits };
+    let total_commits = commits + if ctx.no_merges { 0 } else { merge_commits };
     let merge_ratio = if total_commits > 0 {
         merge_commits as f64 / total_commits as f64
     } else {
@@ -212,26 +181,23 @@ fn compute_branch_activity(
     Ok((commits, total_adds, total_dels, merge_ratio))
 }
 
-fn compute_commit_churn(repo: &Repository, commit: &git2::Commit) -> Result<(u64, u64)> {
-    if commit.parent_count() == 0 {
-        // Root commit - compare against empty tree
-        let tree = commit.tree()?;
-        return crate::stats::churn::diff_trees_public(repo, None, Some(&tree));
-    }
-
-    // For regular commits, diff against the first parent
-    let parent = commit.parent(0)?;
-    let parent_tree = parent.tree()?;
-    let commit_tree = commit.tree()?;
-
-    crate::stats::churn::diff_trees_public(repo, Some(&parent_tree), Some(&commit_tree))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use git2::{Signature, Time};
     use tempfile::TempDir;
+
+    fn test_ctx() -> StatsContext {
+        StatsContext {
+            repo_path: "test".to_string(),
+            since: None,
+            until: None,
+            bucket: crate::stats::Bucket::Week,
+            no_merges: false,
+            include: None,
+            exclude: None,
+        }
+    }
 
     fn create_test_repo() -> Result<(TempDir, Repository)> {
         let temp_dir = TempDir::new()?;
@@ -298,9 +264,10 @@ mod tests {
     #[test]
     fn test_branch_ahead_behind() -> Result<()> {
         let (_temp_dir, repo) = create_test_repo()?;
+        let ctx = test_ctx();
 
         // Test that the function runs without crashing
-        let result = analyze_branches(&repo, None, None, None, false);
+        let result = analyze_branches(&repo, None, &ctx);
 
         // Should succeed even with minimal repository
         assert!(result.is_ok());
@@ -315,9 +282,10 @@ mod tests {
     #[test]
     fn test_branch_activity_metrics() -> Result<()> {
         let (_temp_dir, repo) = create_test_repo()?;
+        let ctx = test_ctx();
 
         // Analyze branches
-        let _stats = analyze_branches(&repo, None, None, None, false)?;
+        let _stats = analyze_branches(&repo, None, &ctx)?;
 
         // Should work with basic repository
         // branches.len() is always >= 0 for Vec<T>, so no need to assert this
@@ -328,13 +296,12 @@ mod tests {
     #[test]
     fn test_merge_ratio_calculation() -> Result<()> {
         let (_temp_dir, repo) = create_test_repo()?;
+        let ctx = test_ctx();
+        let filters = path_filter::CompiledPathFilters::from_context(&ctx)?;
 
         // Test the compute_branch_activity function with basic parameters
         let head_oid = repo.head()?.target().unwrap();
-        let result = compute_branch_activity(
-            &repo, head_oid, head_oid, // Same oid means no commits between
-            None, None, false,
-        );
+        let result = compute_branch_activity(&repo, head_oid, head_oid, &ctx, &filters);
 
         // Should succeed and return metrics
         assert!(result.is_ok());

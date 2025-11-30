@@ -3,7 +3,7 @@ use git2::{Commit, Oid, Repository};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 
-use super::StatsContext;
+use super::{StatsContext, path_filter};
 
 #[derive(Debug, Serialize, Clone)]
 pub struct FileStability {
@@ -60,28 +60,12 @@ pub fn analyze_stability(
 
     // Parse time filters
     let (since_time, until_time) = parse_time_range(ctx.since.as_deref(), ctx.until.as_deref())?;
+    let filtered_commits = path_filter::FilteredCommits::new(repo, ctx)?;
+    let path_filters = filtered_commits.path_filters().clone();
 
     // Walk through commits
-    let mut revwalk = repo.revwalk()?;
-    revwalk.push_head()?;
-    revwalk.set_sorting(git2::Sort::TIME)?;
-
-    for oid in revwalk {
-        let oid = oid?;
-        let commit = repo.find_commit(oid)?;
-
-        // Filter by time range
-        let commit_time = commit.time().seconds();
-        if let Some(since) = since_time
-            && commit_time < since
-        {
-            break;
-        } // commits are in chronological order
-        if let Some(until) = until_time
-            && commit_time > until
-        {
-            continue;
-        }
+    for commit_result in filtered_commits {
+        let commit = commit_result?;
 
         // Filter by author if specified
         if let Some(author_filter) = author_filter {
@@ -94,13 +78,8 @@ pub fn analyze_stability(
             }
         }
 
-        // Skip merge commits if requested
-        if ctx.no_merges && commit.parent_count() > 1 {
-            continue;
-        }
-
         // Analyze the commit's changes
-        analyze_commit_changes(repo, &commit, directory_filter, &mut file_changes)?;
+        analyze_commit_changes(repo, &commit, directory_filter, &path_filters, &mut file_changes)?;
     }
 
     // Calculate stability metrics for each file
@@ -145,6 +124,7 @@ fn analyze_commit_changes(
     repo: &Repository,
     commit: &Commit,
     directory_filter: Option<&str>,
+    filters: &path_filter::CompiledPathFilters,
     file_changes: &mut HashMap<String, FileChangeInfo>,
 ) -> Result<()> {
     let tree = commit.tree()?;
@@ -167,6 +147,10 @@ fn analyze_commit_changes(
             if let Some(dir_filter) = directory_filter
                 && !file_path.starts_with(dir_filter)
             {
+                return true;
+            }
+
+            if !filters.matches(&file_path) {
                 return true;
             }
 

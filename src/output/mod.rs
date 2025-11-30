@@ -124,8 +124,7 @@ struct CalendarOutput {
 }
 
 pub fn render_calendar(repo: &Repository, ctx: &StatsContext, fmt: OutputFormat) -> Result<()> {
-    let mat =
-        crate::stats::calendar::compute_calendar(repo, ctx.since.as_deref(), ctx.until.as_deref())?;
+    let mat = crate::stats::calendar::compute_calendar(repo, ctx)?;
     match fmt {
         OutputFormat::Json => {
             let out = CalendarOutput {
@@ -141,11 +140,9 @@ pub fn render_calendar(repo: &Repository, ctx: &StatsContext, fmt: OutputFormat)
 }
 
 #[derive(serde::Serialize)]
-struct HotspotsOutput<'a> {
+struct HotspotsOutput {
     context: StatsContext,
     half_life_days: f64,
-    include: Option<&'a str>,
-    exclude: Option<&'a str>,
     top: usize,
     hotspots: Vec<crate::stats::hotspots::FileHotspot>,
 }
@@ -153,14 +150,11 @@ struct HotspotsOutput<'a> {
 pub fn render_hotspots(
     repo: &Repository,
     ctx: &StatsContext,
-    include: Option<&str>,
-    exclude: Option<&str>,
     half_life_days: f64,
     top: usize,
     fmt: OutputFormat,
 ) -> Result<()> {
-    let mut hs =
-        crate::stats::hotspots::compute_hotspots(repo, ctx, include, exclude, half_life_days)?;
+    let mut hs = crate::stats::hotspots::compute_hotspots(repo, ctx, half_life_days)?;
     if hs.len() > top {
         hs.truncate(top);
     }
@@ -169,14 +163,12 @@ pub fn render_hotspots(
             let out = HotspotsOutput {
                 context: ctx.clone(),
                 half_life_days,
-                include,
-                exclude,
                 top,
                 hotspots: hs,
             };
             json::print(&out)
         }
-        OutputFormat::Table => table::print_hotspots_table(&hs, half_life_days, include, exclude),
+        OutputFormat::Table => table::print_hotspots_table(ctx, &hs, half_life_days),
         OutputFormat::Chart => ascii::print_hotspots_bars(&hs),
     }
 }
@@ -194,13 +186,7 @@ pub fn render_branches(
     base: Option<&str>,
     fmt: OutputFormat,
 ) -> Result<()> {
-    let stats = crate::stats::branches::analyze_branches(
-        repo,
-        base,
-        ctx.since.as_deref(),
-        ctx.until.as_deref(),
-        ctx.no_merges,
-    )?;
+    let stats = crate::stats::branches::analyze_branches(repo, base, ctx)?;
     match fmt {
         OutputFormat::Json => {
             let out = BranchesOutput {
@@ -232,15 +218,7 @@ pub fn render_coupling(
     window_size: usize,
     fmt: OutputFormat,
 ) -> Result<()> {
-    let stats = crate::stats::coupling::analyze_coupling(
-        repo,
-        ctx.since.as_deref(),
-        ctx.until.as_deref(),
-        ctx.no_merges,
-        top,
-        min_support,
-        window_size,
-    )?;
+    let stats = crate::stats::coupling::analyze_coupling(repo, ctx, top, min_support, window_size)?;
     match fmt {
         OutputFormat::Json => {
             let out = CouplingOutput {
@@ -261,8 +239,6 @@ pub fn render_coupling(
 struct OwnershipOutput {
     context: StatsContext,
     top: usize,
-    include: Option<String>,
-    exclude: Option<String>,
     expensive: bool,
     ownership_stats: crate::stats::ownership::OwnershipStats,
 }
@@ -271,22 +247,13 @@ pub fn render_ownership(
     repo: &Repository,
     ctx: &StatsContext,
     top: usize,
-    include: Option<&str>,
-    exclude: Option<&str>,
     expensive: bool,
     fmt: OutputFormat,
 ) -> Result<()> {
     let stats = if expensive {
-        crate::stats::ownership::analyze_ownership_blame(repo, top, include, exclude)?
+        crate::stats::ownership::analyze_ownership_blame(repo, ctx, top)?
     } else {
-        crate::stats::ownership::analyze_ownership_fast(
-            repo,
-            ctx.since.as_deref(),
-            ctx.until.as_deref(),
-            top,
-            include,
-            exclude,
-        )?
+        crate::stats::ownership::analyze_ownership_fast(repo, ctx, top)?
     };
 
     match fmt {
@@ -294,8 +261,6 @@ pub fn render_ownership(
             let out = OwnershipOutput {
                 context: ctx.clone(),
                 top,
-                include: include.map(|s| s.to_string()),
-                exclude: exclude.map(|s| s.to_string()),
                 expensive,
                 ownership_stats: stats,
             };
@@ -349,16 +314,23 @@ pub fn render_stability(
 
 #[derive(serde::Serialize)]
 struct ReleasesOutput {
+    context: StatsContext,
     limit: Option<usize>,
     release_stats: crate::stats::releases::ReleaseStats,
 }
 
-pub fn render_releases(repo: &Repository, limit: Option<usize>, fmt: OutputFormat) -> Result<()> {
-    let stats = crate::stats::releases::analyze_releases(repo, limit)?;
+pub fn render_releases(
+    repo: &Repository,
+    ctx: &StatsContext,
+    limit: Option<usize>,
+    fmt: OutputFormat,
+) -> Result<()> {
+    let stats = crate::stats::releases::analyze_releases(repo, ctx, limit)?;
 
     match fmt {
         OutputFormat::Json => {
             let out = ReleasesOutput {
+                context: ctx.clone(),
                 limit,
                 release_stats: stats,
             };
