@@ -204,6 +204,16 @@ enum StatsCommand {
     Releases(ReleasesArgs),
 }
 
+#[derive(Args, Debug, Clone, Default)]
+struct PathFilterArgs {
+    /// Only include paths matching this glob (e.g., "src/**")
+    #[arg(long, value_name = "GLOB")]
+    include: Option<String>,
+    /// Exclude paths matching this glob (e.g., "tests/**")
+    #[arg(long, value_name = "GLOB")]
+    exclude: Option<String>,
+}
+
 #[derive(Args, Debug, Clone)]
 struct RepoArgs {
     /// Start of time window (e.g., "90d", "2024-01-01")
@@ -229,6 +239,8 @@ struct RepoArgs {
     /// Output format
     #[arg(long, value_enum, default_value = "table")]
     format: stats::OutputFormat,
+    #[command(flatten)]
+    paths: PathFilterArgs,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -251,6 +263,8 @@ struct AuthorsArgs {
     /// Output format
     #[arg(long, value_enum, default_value = "table")]
     format: stats::OutputFormat,
+    #[command(flatten)]
+    paths: PathFilterArgs,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -264,6 +278,8 @@ struct CalendarArgs {
     /// Output format
     #[arg(long, value_enum, default_value = "chart")]
     format: stats::OutputFormat,
+    #[command(flatten)]
+    paths: PathFilterArgs,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -277,12 +293,8 @@ struct HotspotsArgs {
     /// Exclude merge commits
     #[arg(long, default_value_t = true)]
     no_merges: bool,
-    /// Include glob (e.g., 'src/**')
-    #[arg(long)]
-    include: Option<String>,
-    /// Exclude glob (e.g., 'tests/**')
-    #[arg(long)]
-    exclude: Option<String>,
+    #[command(flatten)]
+    paths: PathFilterArgs,
     /// Half-life for recency decay in days
     #[arg(long, default_value_t = 90.0)]
     half_life_days: f64,
@@ -311,6 +323,8 @@ struct BranchesArgs {
     /// Output format
     #[arg(long, value_enum, default_value = "table")]
     format: stats::OutputFormat,
+    #[command(flatten)]
+    paths: PathFilterArgs,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -336,6 +350,8 @@ struct CouplingArgs {
     /// Output format
     #[arg(long, value_enum, default_value = "table")]
     format: stats::OutputFormat,
+    #[command(flatten)]
+    paths: PathFilterArgs,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -349,12 +365,8 @@ struct OwnershipArgs {
     /// Top N files to analyze
     #[arg(long, default_value_t = 25)]
     top: usize,
-    /// Include file pattern (e.g., '*.rs')
-    #[arg(long)]
-    include: Option<String>,
-    /// Exclude file pattern (e.g., 'target/*')
-    #[arg(long)]
-    exclude: Option<String>,
+    #[command(flatten)]
+    paths: PathFilterArgs,
     /// Use expensive blame analysis (opt-in) instead of fast last-modified approximation
     #[arg(long, default_value_t = false)]
     expensive: bool,
@@ -386,6 +398,8 @@ struct StabilityArgs {
     /// Output format
     #[arg(long, value_enum, default_value = "table")]
     format: stats::OutputFormat,
+    #[command(flatten)]
+    paths: PathFilterArgs,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -396,6 +410,8 @@ struct ReleasesArgs {
     /// Output format
     #[arg(long, value_enum, default_value = "table")]
     format: stats::OutputFormat,
+    #[command(flatten)]
+    paths: PathFilterArgs,
 }
 
 fn main() -> Result<()> {
@@ -439,6 +455,8 @@ fn main() -> Result<()> {
                     until: args.until.clone(),
                     bucket: args.bucket,
                     no_merges: args.no_merges,
+                    include: args.paths.include.clone(),
+                    exclude: args.paths.exclude.clone(),
                 };
                 output::render_repo(&repo, args.metric, &ctx, args.format)?
             }
@@ -456,6 +474,8 @@ fn main() -> Result<()> {
                     until: args.until.clone(),
                     bucket: stats::Bucket::Week, // unused for authors
                     no_merges: args.no_merges,
+                    include: args.paths.include.clone(),
+                    exclude: args.paths.exclude.clone(),
                 };
                 output::render_authors(&repo, &ctx, args.metric, args.top, args.format)?
             }
@@ -473,6 +493,8 @@ fn main() -> Result<()> {
                     until: args.until.clone(),
                     bucket: stats::Bucket::Week, // unused for calendar
                     no_merges: false,
+                    include: args.paths.include.clone(),
+                    exclude: args.paths.exclude.clone(),
                 };
                 output::render_calendar(&repo, &ctx, args.format)?
             }
@@ -490,16 +512,10 @@ fn main() -> Result<()> {
                     until: args.until.clone(),
                     bucket: stats::Bucket::Week,
                     no_merges: args.no_merges,
+                    include: args.paths.include.clone(),
+                    exclude: args.paths.exclude.clone(),
                 };
-                output::render_hotspots(
-                    &repo,
-                    &ctx,
-                    args.include.as_deref(),
-                    args.exclude.as_deref(),
-                    args.half_life_days,
-                    args.top,
-                    args.format,
-                )?
+                output::render_hotspots(&repo, &ctx, args.half_life_days, args.top, args.format)?
             }
             Some(StatsCommand::Branches(args)) => {
                 let repo_display = if let Some(p) = repo.workdir() {
@@ -515,6 +531,8 @@ fn main() -> Result<()> {
                     until: args.until.clone(),
                     bucket: stats::Bucket::Week,
                     no_merges: args.no_merges,
+                    include: args.paths.include.clone(),
+                    exclude: args.paths.exclude.clone(),
                 };
                 output::render_branches(&repo, &ctx, args.base.as_deref(), args.format)?
             }
@@ -532,6 +550,8 @@ fn main() -> Result<()> {
                     until: args.until.clone(),
                     bucket: stats::Bucket::Week,
                     no_merges: args.no_merges,
+                    include: args.paths.include.clone(),
+                    exclude: args.paths.exclude.clone(),
                 };
                 output::render_coupling(
                     &repo,
@@ -556,16 +576,10 @@ fn main() -> Result<()> {
                     until: args.until.clone(),
                     bucket: stats::Bucket::Week,
                     no_merges: false, // Not relevant for ownership analysis
+                    include: args.paths.include.clone(),
+                    exclude: args.paths.exclude.clone(),
                 };
-                output::render_ownership(
-                    &repo,
-                    &ctx,
-                    args.top,
-                    args.include.as_deref(),
-                    args.exclude.as_deref(),
-                    args.expensive,
-                    args.format,
-                )?
+                output::render_ownership(&repo, &ctx, args.top, args.expensive, args.format)?
             }
             Some(StatsCommand::Stability(args)) => {
                 let repo_display = if let Some(p) = repo.workdir() {
@@ -581,6 +595,8 @@ fn main() -> Result<()> {
                     until: args.until.clone(),
                     bucket: stats::Bucket::Week, // unused for stability
                     no_merges: args.no_merges,
+                    include: args.paths.include.clone(),
+                    exclude: args.paths.exclude.clone(),
                 };
                 output::render_stability(
                     &repo,
@@ -592,7 +608,23 @@ fn main() -> Result<()> {
                 )?
             }
             Some(StatsCommand::Releases(args)) => {
-                output::render_releases(&repo, args.limit, args.format)?
+                let repo_display = if let Some(p) = repo.workdir() {
+                    p.display().to_string()
+                } else if let Some(parent) = repo.path().parent() {
+                    parent.display().to_string()
+                } else {
+                    String::from(".")
+                };
+                let ctx = stats::StatsContext {
+                    repo_path: repo_display,
+                    since: None,
+                    until: None,
+                    bucket: stats::Bucket::Week,
+                    no_merges: false,
+                    include: args.paths.include.clone(),
+                    exclude: args.paths.exclude.clone(),
+                };
+                output::render_releases(&repo, &ctx, args.limit, args.format)?
             }
             None => show_stats(&repo)?,
         },
@@ -1058,6 +1090,8 @@ mod tests {
             until: None,
             bucket: stats::Bucket::Week,
             no_merges: true,
+            include: None,
+            exclude: None,
         };
 
         let result = stats::stability::analyze_stability(&repo, &ctx, None, None, 10);

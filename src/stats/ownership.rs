@@ -1,8 +1,10 @@
 use anyhow::Result;
-use git2::{Repository, Sort};
+use git2::Repository;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::Path;
+
+use crate::stats::{StatsContext, path_filter};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct FileOwnership {
@@ -58,60 +60,30 @@ pub struct BusFactor {
 /// Analyze code ownership using fast last-modified-by approximation
 pub fn analyze_ownership_fast(
     repo: &Repository,
-    since: Option<&str>,
-    until: Option<&str>,
+    ctx: &StatsContext,
     top_n: usize,
-    include_pattern: Option<&str>,
-    exclude_pattern: Option<&str>,
 ) -> Result<OwnershipStats> {
-    let mut revwalk = repo.revwalk()?;
-    revwalk.push_head()?;
-    revwalk.set_sorting(Sort::TIME)?;
-
-    // Parse time filters
-    let since_time = crate::stats::activity::parse_instant(since);
-    let until_time = crate::stats::activity::parse_instant(until);
+    let filtered_commits = path_filter::FilteredCommits::new(repo, ctx)?;
+    let path_filters = filtered_commits.path_filters().clone();
 
     let mut file_last_modified: HashMap<String, (String, i64)> = HashMap::new();
     let mut total_files_seen = std::collections::HashSet::new();
 
     // Walk commits to find last modifier for each file
-    for oid_result in revwalk {
-        let oid = oid_result?;
-        let commit = repo.find_commit(oid)?;
-
-        // Apply time filters
+    for commit_result in filtered_commits {
+        let commit = commit_result?;
         let commit_time = commit.time().seconds();
-        if let Some(since) = since_time {
-            if commit_time < since {
-                break;
-            }
-        }
-        if let Some(until) = until_time {
-            if commit_time > until {
-                continue;
-            }
-        }
 
         let author = commit.author().name().unwrap_or("(unknown)").to_string();
-        let changed_files = get_changed_files(repo, &commit)?;
+        let changed_files = path_filter::collect_changed_paths(repo, &commit, &path_filters)?;
+
+        if changed_files.is_empty() {
+            continue;
+        }
 
         for file_path in changed_files {
-            // Apply include/exclude patterns
-            if let Some(exclude) = exclude_pattern {
-                if glob_match(&file_path, exclude) {
-                    continue;
-                }
-            }
-            if let Some(include) = include_pattern {
-                if !glob_match(&file_path, include) {
-                    continue;
-                }
-            }
-
             total_files_seen.insert(file_path.clone());
 
-            // Update last modified only if we haven't seen this file yet (most recent)
             if !file_last_modified.contains_key(&file_path) {
                 file_last_modified.insert(file_path, (author.clone(), commit_time));
             }
@@ -165,9 +137,8 @@ pub fn analyze_ownership_fast(
 /// Analyze code ownership using expensive blame analysis (opt-in)
 pub fn analyze_ownership_blame(
     repo: &Repository,
+    ctx: &StatsContext,
     top_n: usize,
-    include_pattern: Option<&str>,
-    exclude_pattern: Option<&str>,
 ) -> Result<OwnershipStats> {
     let mut file_ownership = Vec::new();
     let mut processed_files = 0;
@@ -179,14 +150,8 @@ pub fn analyze_ownership_blame(
 
     // Walk the tree to find files
     let mut files_to_analyze = Vec::new();
-    collect_files_for_blame(
-        repo,
-        &tree,
-        "",
-        &mut files_to_analyze,
-        include_pattern,
-        exclude_pattern,
-    )?;
+    let filters = path_filter::CompiledPathFilters::from_context(ctx)?;
+    collect_files_for_blame(repo, &tree, "", &mut files_to_analyze, &filters)?;
 
     // Limit files to analyze for performance
     if files_to_analyze.len() > top_n {
@@ -287,8 +252,7 @@ fn collect_files_for_blame(
     tree: &git2::Tree,
     prefix: &str,
     files: &mut Vec<String>,
-    include_pattern: Option<&str>,
-    exclude_pattern: Option<&str>,
+    filters: &path_filter::CompiledPathFilters,
 ) -> Result<()> {
     for entry in tree {
         let name = entry.name().unwrap_or("(unknown)");
@@ -301,91 +265,13 @@ fn collect_files_for_blame(
         if entry.kind() == Some(git2::ObjectType::Tree) {
             if let Ok(object) = entry.to_object(repo) {
                 if let Ok(subtree) = object.peel_to_tree() {
-                    collect_files_for_blame(
-                        repo,
-                        &subtree,
-                        &path,
-                        files,
-                        include_pattern,
-                        exclude_pattern,
-                    )?;
+                    collect_files_for_blame(repo, &subtree, &path, files, filters)?;
                 }
             }
         } else if entry.kind() == Some(git2::ObjectType::Blob) {
-            // Apply include/exclude patterns
-            if let Some(exclude) = exclude_pattern {
-                if glob_match(&path, exclude) {
-                    continue;
-                }
+            if filters.matches(&path) {
+                files.push(path);
             }
-            if let Some(include) = include_pattern {
-                if !glob_match(&path, include) {
-                    continue;
-                }
-            }
-
-            files.push(path);
-        }
-    }
-    Ok(())
-}
-
-fn get_changed_files(repo: &Repository, commit: &git2::Commit) -> Result<Vec<String>> {
-    let mut changed_files = Vec::new();
-
-    if commit.parent_count() == 0 {
-        // Root commit - all files are new
-        let tree = commit.tree()?;
-        collect_all_files(repo, &tree, "", &mut changed_files)?;
-        return Ok(changed_files);
-    }
-
-    // Compare with first parent
-    let parent = commit.parent(0)?;
-    let parent_tree = parent.tree()?;
-    let commit_tree = commit.tree()?;
-
-    let diff = repo.diff_tree_to_tree(Some(&parent_tree), Some(&commit_tree), None)?;
-
-    diff.foreach(
-        &mut |diff_delta, _progress| {
-            if let Some(path) = diff_delta.new_file().path() {
-                if let Some(path_str) = path.to_str() {
-                    changed_files.push(path_str.to_string());
-                }
-            }
-            true
-        },
-        None,
-        None,
-        None,
-    )?;
-
-    Ok(changed_files)
-}
-
-fn collect_all_files(
-    repo: &Repository,
-    tree: &git2::Tree,
-    prefix: &str,
-    files: &mut Vec<String>,
-) -> Result<()> {
-    for entry in tree {
-        let name = entry.name().unwrap_or("(unknown)");
-        let path = if prefix.is_empty() {
-            name.to_string()
-        } else {
-            format!("{}/{}", prefix, name)
-        };
-
-        if entry.kind() == Some(git2::ObjectType::Tree) {
-            if let Ok(object) = entry.to_object(repo) {
-                if let Ok(subtree) = object.peel_to_tree() {
-                    collect_all_files(repo, &subtree, &path, files)?;
-                }
-            }
-        } else {
-            files.push(path);
         }
     }
     Ok(())
@@ -482,37 +368,28 @@ fn calculate_bus_factor(overall_ownership: &[AuthorOwnership], _total_files: usi
     }
 }
 
-fn glob_match(text: &str, pattern: &str) -> bool {
-    // Simple glob matching - supports * wildcard
-    if pattern == "*" {
-        return true;
-    }
-
-    // Convert glob pattern to regex-like matching
-    if pattern.contains('*') {
-        let parts: Vec<&str> = pattern.split('*').collect();
-        if parts.len() == 2 {
-            let prefix = parts[0];
-            let suffix = parts[1];
-            return text.starts_with(prefix) && text.ends_with(suffix);
-        }
-    }
-
-    // Exact match
-    text == pattern
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use git2::{Signature, Time};
+    use git2::{Repository, Signature, Time};
     use tempfile::TempDir;
+
+    fn default_ctx() -> StatsContext {
+        StatsContext {
+            repo_path: "test".into(),
+            since: None,
+            until: None,
+            bucket: crate::stats::Bucket::Week,
+            no_merges: false,
+            include: None,
+            exclude: None,
+        }
+    }
 
     fn create_test_repo() -> Result<(TempDir, Repository)> {
         let temp_dir = TempDir::new()?;
-        let repo = Repository::init(&temp_dir)?;
+        let repo = Repository::init(temp_dir.path())?;
 
-        // Set up user
         let mut config = repo.config()?;
         config.set_str("user.name", "Test User")?;
         config.set_str("user.email", "test@example.com")?;
@@ -557,7 +434,6 @@ mod tests {
     fn test_ownership_fast_analysis() -> Result<()> {
         let (_temp_dir, repo) = create_test_repo()?;
 
-        // Create commits by different authors
         let commit1_oid = create_commit_with_files(
             &repo,
             "Initial commit",
@@ -567,7 +443,7 @@ mod tests {
         )?;
 
         let commit1 = repo.find_commit(commit1_oid)?;
-        let _commit2_oid = create_commit_with_files(
+        create_commit_with_files(
             &repo,
             "Update file1",
             &[("file1.txt", "updated content1")],
@@ -575,7 +451,8 @@ mod tests {
             Some(&commit1),
         )?;
 
-        let stats = analyze_ownership_fast(&repo, None, None, 10, None, None)?;
+        let ctx = default_ctx();
+        let stats = analyze_ownership_fast(&repo, &ctx, 10)?;
 
         assert_eq!(stats.analysis_mode, OwnershipMode::LastModified);
         assert!(stats.files_analyzed > 0);
@@ -603,21 +480,9 @@ mod tests {
 
         let bus_factor = calculate_bus_factor(&ownership, 10);
 
-        // High concentration should result in low bus factor
         assert_eq!(bus_factor.score, 1.0);
         assert!(bus_factor.description.contains("Critical"));
         assert!(bus_factor.top_contributors_coverage > 50.0);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_glob_matching() -> Result<()> {
-        assert!(glob_match("test.txt", "*"));
-        assert!(glob_match("src/main.rs", "src/*"));
-        assert!(glob_match("test.rs", "*.rs"));
-        assert!(!glob_match("test.txt", "*.rs"));
-        assert!(glob_match("exact_match", "exact_match"));
 
         Ok(())
     }
@@ -650,8 +515,6 @@ mod tests {
         let overall = calculate_overall_ownership(&file_ownership);
 
         assert_eq!(overall.len(), 2);
-
-        // Alice should have higher ownership (100 lines vs 50)
         let alice = overall.iter().find(|a| a.author == "Alice").unwrap();
         let bob = overall.iter().find(|a| a.author == "Bob").unwrap();
 

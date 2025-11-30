@@ -1,9 +1,9 @@
 use anyhow::Result;
-use git2::{Repository, Sort};
+use git2::Repository;
 use serde::Serialize;
 use std::collections::HashMap;
 
-use crate::stats::StatsContext;
+use crate::stats::{StatsContext, path_filter};
 
 #[derive(Debug, Serialize, Clone)]
 pub struct AuthorStats {
@@ -14,36 +14,17 @@ pub struct AuthorStats {
 }
 
 pub fn compute_authors(repo: &Repository, ctx: &StatsContext) -> Result<Vec<AuthorStats>> {
-    let (since_ts, until_ts) = (
-        crate::stats::activity::parse_instant(ctx.since.as_deref()),
-        crate::stats::activity::parse_instant(ctx.until.as_deref()),
-    );
-
+    let filtered_commits = path_filter::FilteredCommits::new(repo, ctx)?;
+    let path_filters = filtered_commits.path_filters().clone();
     let mut by_author: HashMap<String, AuthorStats> = HashMap::new();
 
-    let mut revwalk = repo.revwalk()?;
-    revwalk.push_head()?;
-    revwalk.set_sorting(Sort::TIME)?;
+    for commit_result in filtered_commits {
+        let commit = commit_result?;
 
-    for oid in revwalk {
-        let oid = oid?;
-        let commit = repo.find_commit(oid)?;
-        let ts = commit.time().seconds();
-        if let Some(since) = since_ts
-            && ts < since
-        {
+        let Some((adds, dels)) = path_filter::compute_commit_churn(repo, &commit, &path_filters)?
+        else {
             continue;
-        }
-        if let Some(until) = until_ts
-            && ts > until
-        {
-            continue;
-        }
-
-        // Skip merges if requested
-        if ctx.no_merges && commit.parent_count() > 1 {
-            continue;
-        }
+        };
 
         let author = commit.author().name().unwrap_or("Unknown").to_string();
         let entry = by_author.entry(author.clone()).or_insert(AuthorStats {
@@ -53,17 +34,6 @@ pub fn compute_authors(repo: &Repository, ctx: &StatsContext) -> Result<Vec<Auth
             dels: 0,
         });
         entry.commits += 1;
-
-        // Churn via diff to first parent (or empty tree for root)
-        let (adds, dels) = if commit.parent_count() == 0 {
-            let tree = commit.tree()?;
-            crate::stats::churn::diff_trees_public(repo, None, Some(&tree))?
-        } else {
-            let parent = commit.parent(0)?;
-            let parent_tree = parent.tree()?;
-            let tree = commit.tree()?;
-            crate::stats::churn::diff_trees_public(repo, Some(&parent_tree), Some(&tree))?
-        };
         entry.adds += adds;
         entry.dels += dels;
     }

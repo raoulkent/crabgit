@@ -9,6 +9,7 @@ pub mod churn;
 pub mod coupling;
 pub mod hotspots;
 pub mod ownership;
+pub mod path_filter;
 pub mod releases;
 pub mod stability;
 
@@ -45,4 +46,6 @@ pub struct StatsContext {
     pub until: Option<String>,
     pub bucket: Bucket,
     pub no_merges: bool,
+    pub include: Option<String>,
+    pub exclude: Option<String>,
 }

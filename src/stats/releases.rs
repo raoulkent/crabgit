@@ -2,6 +2,8 @@ use anyhow::Result;
 use git2::{Oid, Repository, Time};
 use serde::Serialize;
 
+use crate::stats::{StatsContext, path_filter};
+
 #[derive(Debug, Serialize, Clone)]
 pub struct ReleaseStats {
     pub releases: Vec<Release>,
@@ -51,7 +53,11 @@ struct TagInfo {
     target_oid: Oid,
 }
 
-pub fn analyze_releases(repo: &Repository, limit: Option<usize>) -> Result<ReleaseStats> {
+pub fn analyze_releases(
+    repo: &Repository,
+    ctx: &StatsContext,
+    limit: Option<usize>,
+) -> Result<ReleaseStats> {
     // Get all tags sorted by date (newest first)
     let mut tags = collect_tags(repo)?;
     tags.sort_by(|a, b| b.date.cmp(&a.date));
@@ -64,13 +70,17 @@ pub fn analyze_releases(repo: &Repository, limit: Option<usize>) -> Result<Relea
     let mut releases = Vec::new();
     let mut previous_tag_oid: Option<Oid> = None;
 
+    let filters = path_filter::CompiledPathFilters::from_context(ctx)?;
+
     for (i, tag_info) in tags.iter().enumerate() {
-        let commits_total = count_commits_to_tag(repo, tag_info.target_oid)?;
+        let commits_total = count_commits_to_tag(repo, tag_info.target_oid, &filters)?;
 
         let (commits_since_previous, churn_adds, churn_dels, days_since_previous) =
             if let Some(prev_oid) = previous_tag_oid {
-                let commits = count_commits_between_tags(repo, prev_oid, tag_info.target_oid)?;
-                let (adds, dels) = compute_churn_between_tags(repo, prev_oid, tag_info.target_oid)?;
+                let commits =
+                    count_commits_between_tags(repo, prev_oid, tag_info.target_oid, &filters)?;
+                let (adds, dels) =
+                    compute_churn_between_tags(repo, prev_oid, tag_info.target_oid, &filters)?;
 
                 // Calculate days between this tag and the previous one
                 let days = if i < tags.len() - 1 {
@@ -82,7 +92,7 @@ pub fn analyze_releases(repo: &Repository, limit: Option<usize>) -> Result<Relea
                 (commits, adds, dels, days)
             } else {
                 // First tag - compare against initial commit
-                let (adds, dels) = compute_churn_to_tag(repo, tag_info.target_oid)?;
+                let (adds, dels) = compute_churn_to_tag(repo, tag_info.target_oid, &filters)?;
                 (commits_total, adds, dels, 0)
             };
 
@@ -188,84 +198,97 @@ fn collect_tags(repo: &Repository) -> Result<Vec<TagInfo>> {
     Ok(tags)
 }
 
-fn count_commits_to_tag(repo: &Repository, tag_oid: Oid) -> Result<u32> {
+fn count_commits_to_tag(
+    repo: &Repository,
+    tag_oid: Oid,
+    filters: &path_filter::CompiledPathFilters,
+) -> Result<u32> {
     let mut revwalk = repo.revwalk()?;
     revwalk.push(tag_oid)?;
     revwalk.set_sorting(git2::Sort::TOPOLOGICAL)?;
-    Ok(revwalk.count() as u32)
+
+    let mut total = 0;
+    for oid in revwalk {
+        let oid = oid?;
+        let commit = repo.find_commit(oid)?;
+        if path_filter::commit_has_matching_paths(repo, &commit, filters)? {
+            total += 1;
+        }
+    }
+    Ok(total)
 }
 
-fn count_commits_between_tags(repo: &Repository, from_oid: Oid, to_oid: Oid) -> Result<u32> {
+fn count_commits_between_tags(
+    repo: &Repository,
+    from_oid: Oid,
+    to_oid: Oid,
+    filters: &path_filter::CompiledPathFilters,
+) -> Result<u32> {
     let mut revwalk = repo.revwalk()?;
     revwalk.push(to_oid)?;
     revwalk.hide(from_oid)?;
     revwalk.set_sorting(git2::Sort::TOPOLOGICAL)?;
-    Ok(revwalk.count() as u32)
+
+    let mut total = 0;
+    for oid in revwalk {
+        let oid = oid?;
+        let commit = repo.find_commit(oid)?;
+        if path_filter::commit_has_matching_paths(repo, &commit, filters)? {
+            total += 1;
+        }
+    }
+    Ok(total)
 }
 
-fn compute_churn_to_tag(repo: &Repository, tag_oid: Oid) -> Result<(u32, u32)> {
+fn compute_churn_to_tag(
+    repo: &Repository,
+    tag_oid: Oid,
+    filters: &path_filter::CompiledPathFilters,
+) -> Result<(u32, u32)> {
     let mut revwalk = repo.revwalk()?;
     revwalk.push(tag_oid)?;
     revwalk.set_sorting(git2::Sort::TIME)?;
 
-    let mut total_adds = 0;
-    let mut total_dels = 0;
-
-    for oid_result in revwalk {
-        let oid = oid_result?;
-        let commit = repo.find_commit(oid)?;
-
-        // Skip merge commits to avoid double counting
-        if commit.parent_count() > 1 {
-            continue;
-        }
-
-        let (adds, dels) = compute_commit_churn(repo, &commit)?;
-        total_adds += adds;
-        total_dels += dels;
-    }
-
-    Ok((total_adds, total_dels))
+    accumulate_churn(repo, revwalk, filters)
 }
 
-fn compute_churn_between_tags(repo: &Repository, from_oid: Oid, to_oid: Oid) -> Result<(u32, u32)> {
+fn compute_churn_between_tags(
+    repo: &Repository,
+    from_oid: Oid,
+    to_oid: Oid,
+    filters: &path_filter::CompiledPathFilters,
+) -> Result<(u32, u32)> {
     let mut revwalk = repo.revwalk()?;
     revwalk.push(to_oid)?;
     revwalk.hide(from_oid)?;
     revwalk.set_sorting(git2::Sort::TIME)?;
 
-    let mut total_adds = 0;
-    let mut total_dels = 0;
+    accumulate_churn(repo, revwalk, filters)
+}
 
-    for oid_result in revwalk {
-        let oid = oid_result?;
+fn accumulate_churn(
+    repo: &Repository,
+    mut revwalk: git2::Revwalk<'_>,
+    filters: &path_filter::CompiledPathFilters,
+) -> Result<(u32, u32)> {
+    let mut total_adds = 0u64;
+    let mut total_dels = 0u64;
+
+    for oid in revwalk {
+        let oid = oid?;
         let commit = repo.find_commit(oid)?;
 
-        // Skip merge commits to avoid double counting
         if commit.parent_count() > 1 {
             continue;
         }
 
-        let (adds, dels) = compute_commit_churn(repo, &commit)?;
-        total_adds += adds;
-        total_dels += dels;
+        if let Some((adds, dels)) = path_filter::compute_commit_churn(repo, &commit, filters)? {
+            total_adds += adds;
+            total_dels += dels;
+        }
     }
 
-    Ok((total_adds, total_dels))
-}
-
-fn compute_commit_churn(repo: &Repository, commit: &git2::Commit) -> Result<(u32, u32)> {
-    let tree = commit.tree()?;
-    let parent_tree = if commit.parent_count() > 0 {
-        Some(commit.parent(0)?.tree()?)
-    } else {
-        None
-    };
-
-    let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
-    let stats = diff.stats()?;
-
-    Ok((stats.insertions() as u32, stats.deletions() as u32))
+    Ok((total_adds as u32, total_dels as u32))
 }
 
 fn calculate_summary(releases: &[Release]) -> ReleaseSummary {
@@ -378,6 +401,38 @@ mod tests {
         Ok((temp_dir, repo))
     }
 
+    fn ctx_for(repo: &Repository) -> StatsContext {
+        StatsContext {
+            repo_path: repo
+                .workdir()
+                .unwrap_or_else(|| repo.path())
+                .display()
+                .to_string(),
+            since: None,
+            until: None,
+            bucket: crate::stats::Bucket::Week,
+            no_merges: false,
+            include: None,
+            exclude: None,
+        }
+    }
+
+    fn analyze(repo: &Repository, limit: Option<usize>) -> Result<ReleaseStats> {
+        let ctx = ctx_for(repo);
+        analyze_releases(repo, &ctx, limit)
+    }
+
+    fn analyze_with_filters(
+        repo: &Repository,
+        include: Option<&str>,
+        exclude: Option<&str>,
+    ) -> Result<ReleaseStats> {
+        let mut ctx = ctx_for(repo);
+        ctx.include = include.map(|s| s.to_string());
+        ctx.exclude = exclude.map(|s| s.to_string());
+        analyze_releases(repo, &ctx, None)
+    }
+
     #[test]
     fn test_collect_tags() -> Result<()> {
         let (_temp_dir, repo) = create_test_repo_with_tags()?;
@@ -412,7 +467,7 @@ mod tests {
     fn test_analyze_releases() -> Result<()> {
         let (_temp_dir, repo) = create_test_repo_with_tags()?;
 
-        let stats = analyze_releases(&repo, None)?;
+        let stats = analyze(&repo, None)?;
 
         assert_eq!(stats.total_releases, 2);
         assert_eq!(stats.releases.len(), 2);
@@ -429,7 +484,7 @@ mod tests {
     fn test_analyze_releases_with_limit() -> Result<()> {
         let (_temp_dir, repo) = create_test_repo_with_tags()?;
 
-        let stats = analyze_releases(&repo, Some(1))?;
+        let stats = analyze(&repo, Some(1))?;
 
         assert_eq!(stats.total_releases, 1);
         assert_eq!(stats.releases.len(), 1);
@@ -443,7 +498,7 @@ mod tests {
     fn test_commit_counting() -> Result<()> {
         let (_temp_dir, repo) = create_test_repo_with_tags()?;
 
-        let stats = analyze_releases(&repo, None)?;
+        let stats = analyze(&repo, None)?;
 
         // v2.0.0 should have 2 total commits, 1 since previous
         let v2_release = stats.releases.iter().find(|r| r.name == "v2.0.0").unwrap();
@@ -462,7 +517,7 @@ mod tests {
     fn test_churn_calculation() -> Result<()> {
         let (_temp_dir, repo) = create_test_repo_with_tags()?;
 
-        let stats = analyze_releases(&repo, None)?;
+        let stats = analyze(&repo, None)?;
 
         // All releases should have some churn (files were added)
         for release in &stats.releases {
@@ -478,7 +533,7 @@ mod tests {
     fn test_summary_calculation() -> Result<()> {
         let (_temp_dir, repo) = create_test_repo_with_tags()?;
 
-        let stats = analyze_releases(&repo, None)?;
+        let stats = analyze(&repo, None)?;
 
         // Should have meaningful summary stats
         assert!(stats.summary.avg_commits_per_release > 0.0);
@@ -494,7 +549,7 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let repo = Repository::init(temp_dir.path())?;
 
-        let stats = analyze_releases(&repo, None)?;
+        let stats = analyze(&repo, None)?;
 
         assert_eq!(stats.total_releases, 0);
         assert!(stats.releases.is_empty());
@@ -527,7 +582,7 @@ mod tests {
         let tree = repo.find_tree(tree_id)?;
         repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])?;
 
-        let stats = analyze_releases(&repo, None)?;
+        let stats = analyze(&repo, None)?;
 
         assert_eq!(stats.total_releases, 0);
         assert!(stats.releases.is_empty());
@@ -561,7 +616,7 @@ mod tests {
         // Create single tag
         repo.tag_lightweight("v1.0.0", &repo.find_object(commit_oid, None)?, false)?;
 
-        let stats = analyze_releases(&repo, None)?;
+        let stats = analyze(&repo, None)?;
 
         assert_eq!(stats.total_releases, 1);
         assert_eq!(stats.releases[0].name, "v1.0.0");
@@ -575,7 +630,7 @@ mod tests {
     fn test_tag_message_and_tagger() -> Result<()> {
         let (_temp_dir, repo) = create_test_repo_with_tags()?;
 
-        let stats = analyze_releases(&repo, None)?;
+        let stats = analyze(&repo, None)?;
 
         let v2_release = stats.releases.iter().find(|r| r.name == "v2.0.0").unwrap();
         assert!(matches!(v2_release.tag_type, TagType::Annotated));

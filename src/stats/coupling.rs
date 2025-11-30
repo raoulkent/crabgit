@@ -1,7 +1,9 @@
 use anyhow::Result;
-use git2::{Repository, Sort};
+use git2::Repository;
 use serde::Serialize;
 use std::collections::HashMap;
+
+use crate::stats::{StatsContext, path_filter};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct FilePair {
@@ -24,20 +26,13 @@ pub struct CouplingStats {
 /// Analyze file coupling using co-change patterns from commit history
 pub fn analyze_coupling(
     repo: &Repository,
-    since: Option<&str>,
-    until: Option<&str>,
-    no_merges: bool,
+    ctx: &StatsContext,
     top_n: usize,
     min_support: f64,
     window_size: usize, // Process commits in chunks to manage memory
 ) -> Result<CouplingStats> {
-    let mut revwalk = repo.revwalk()?;
-    revwalk.push_head()?;
-    revwalk.set_sorting(Sort::TIME)?;
-
-    // Parse time filters
-    let since_time = crate::stats::activity::parse_instant(since);
-    let until_time = crate::stats::activity::parse_instant(until);
+    let filtered_commits = path_filter::FilteredCommits::new(repo, ctx)?;
+    let path_filters = filtered_commits.path_filters().clone();
 
     // Track file change patterns in chunks to manage memory
     let mut total_commits = 0u64;
@@ -47,28 +42,8 @@ pub fn analyze_coupling(
     // Process commits in windows
     let mut commit_window = Vec::with_capacity(window_size);
 
-    for oid_result in revwalk {
-        let oid = oid_result?;
-        let commit = repo.find_commit(oid)?;
-
-        // Apply time filters
-        let commit_time = commit.time().seconds();
-        if let Some(since) = since_time {
-            if commit_time < since {
-                break; // Commits are in reverse chronological order
-            }
-        }
-        if let Some(until) = until_time {
-            if commit_time > until {
-                continue;
-            }
-        }
-
-        // Skip merge commits if requested
-        if no_merges && commit.parent_count() > 1 {
-            continue;
-        }
-
+    for commit_result in filtered_commits {
+        let commit = commit_result?;
         commit_window.push(commit);
 
         // Process window when full or at end
@@ -79,6 +54,7 @@ pub fn analyze_coupling(
                 &mut total_commits,
                 &mut file_commit_counts,
                 &mut co_change_counts,
+                &path_filters,
             )?;
         }
     }
@@ -91,6 +67,7 @@ pub fn analyze_coupling(
             &mut total_commits,
             &mut file_commit_counts,
             &mut co_change_counts,
+            &path_filters,
         )?;
     }
 
@@ -116,11 +93,14 @@ fn process_commit_window(
     total_commits: &mut u64,
     file_commit_counts: &mut HashMap<String, u64>,
     co_change_counts: &mut HashMap<(String, String), u64>,
+    filters: &path_filter::CompiledPathFilters,
 ) -> Result<()> {
     for commit in commit_window.drain(..) {
+        let changed_files = path_filter::collect_changed_paths(repo, &commit, filters)?;
+        if changed_files.is_empty() {
+            continue;
+        }
         *total_commits += 1;
-
-        let changed_files = get_changed_files(repo, &commit)?;
 
         // Count individual file changes
         for file in &changed_files {
@@ -142,67 +122,6 @@ fn process_commit_window(
 
                 *co_change_counts.entry(pair).or_insert(0) += 1;
             }
-        }
-    }
-    Ok(())
-}
-
-fn get_changed_files(repo: &Repository, commit: &git2::Commit) -> Result<Vec<String>> {
-    let mut changed_files = Vec::new();
-
-    if commit.parent_count() == 0 {
-        // Root commit - all files are new
-        let tree = commit.tree()?;
-        collect_tree_files(repo, &tree, "", &mut changed_files)?;
-        return Ok(changed_files);
-    }
-
-    // Compare with first parent
-    let parent = commit.parent(0)?;
-    let parent_tree = parent.tree()?;
-    let commit_tree = commit.tree()?;
-
-    let diff = repo.diff_tree_to_tree(Some(&parent_tree), Some(&commit_tree), None)?;
-
-    diff.foreach(
-        &mut |diff_delta, _progress| {
-            if let Some(path) = diff_delta.new_file().path() {
-                if let Some(path_str) = path.to_str() {
-                    changed_files.push(path_str.to_string());
-                }
-            }
-            true
-        },
-        None,
-        None,
-        None,
-    )?;
-
-    Ok(changed_files)
-}
-
-fn collect_tree_files(
-    repo: &Repository,
-    tree: &git2::Tree,
-    prefix: &str,
-    files: &mut Vec<String>,
-) -> Result<()> {
-    for entry in tree {
-        let name = entry.name().unwrap_or("(unknown)");
-        let path = if prefix.is_empty() {
-            name.to_string()
-        } else {
-            format!("{}/{}", prefix, name)
-        };
-
-        if entry.kind() == Some(git2::ObjectType::Tree) {
-            if let Ok(object) = entry.to_object(repo) {
-                if let Ok(subtree) = object.peel_to_tree() {
-                    collect_tree_files(repo, &subtree, &path, files)?;
-                }
-            }
-        } else {
-            files.push(path);
         }
     }
     Ok(())
@@ -280,6 +199,18 @@ mod tests {
     use git2::{Signature, Time};
     use tempfile::TempDir;
 
+    fn test_ctx() -> StatsContext {
+        StatsContext {
+            repo_path: "test".into(),
+            since: None,
+            until: None,
+            bucket: crate::stats::Bucket::Week,
+            no_merges: false,
+            include: None,
+            exclude: None,
+        }
+    }
+
     fn create_test_repo() -> Result<(TempDir, Repository)> {
         let temp_dir = TempDir::new()?;
         let repo = Repository::init(&temp_dir)?;
@@ -346,7 +277,8 @@ mod tests {
         )?;
 
         // Analyze coupling
-        let stats = analyze_coupling(&repo, None, None, false, 10, 0.0, 100)?;
+        let ctx = test_ctx();
+        let stats = analyze_coupling(&repo, &ctx, 10, 0.0, 100)?;
 
         assert!(stats.total_commits > 0);
         assert!(stats.files_analyzed >= 2);
@@ -388,7 +320,8 @@ mod tests {
         )?;
 
         // Analyze coupling
-        let stats = analyze_coupling(&repo, None, None, false, 10, 0.0, 100)?;
+        let ctx = test_ctx();
+        let stats = analyze_coupling(&repo, &ctx, 10, 0.0, 100)?;
 
         // Should find coupling between A and B
         let ab_pair = stats.pairs.iter().find(|p| {
@@ -421,7 +354,8 @@ mod tests {
             create_commit_with_files(&repo, "Initial", &[("test.txt", "content")], None)?;
 
         // Test with very small window size to trigger chunking
-        let stats = analyze_coupling(&repo, None, None, false, 10, 0.0, 1)?;
+        let ctx = test_ctx();
+        let stats = analyze_coupling(&repo, &ctx, 10, 0.0, 1)?;
 
         // Should handle small chunks without error
         assert!(stats.total_commits > 0);
@@ -438,7 +372,9 @@ mod tests {
             create_commit_with_files(&repo, "Test commit", &[("test.txt", "content")], None)?;
 
         // Test with time filter that should exclude all commits
-        let _stats = analyze_coupling(&repo, Some("1d"), None, false, 10, 0.0, 100)?;
+        let mut ctx = test_ctx();
+        ctx.since = Some("1d".into());
+        let _stats = analyze_coupling(&repo, &ctx, 10, 0.0, 100)?;
 
         // Should work even with time filters
         // total_commits is usize, so always >= 0

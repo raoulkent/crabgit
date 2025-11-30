@@ -1,10 +1,10 @@
 use anyhow::Result;
-use git2::{Repository, Sort};
+use git2::Repository;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use time::{Date, Month, OffsetDateTime, PrimitiveDateTime};
 
-use crate::stats::{Bucket, StatsContext};
+use crate::stats::{Bucket, StatsContext, path_filter};
 
 #[derive(Debug, Serialize, Clone)]
 pub struct ActivityPoint {
@@ -13,32 +13,12 @@ pub struct ActivityPoint {
 }
 
 pub fn compute_activity(repo: &Repository, ctx: &StatsContext) -> Result<Vec<ActivityPoint>> {
-    let (since_ts, until_ts) = (
-        parse_instant(ctx.since.as_deref()),
-        parse_instant(ctx.until.as_deref()),
-    );
-
-    let mut revwalk = repo.revwalk()?;
-    revwalk.push_head()?;
-    revwalk.set_sorting(Sort::TIME)?;
-
+    let filtered_commits = path_filter::FilteredCommits::new(repo, ctx)?;
     let mut buckets: BTreeMap<i64, u64> = BTreeMap::new();
 
-    for oid in revwalk {
-        let oid = oid?;
-        let commit = repo.find_commit(oid)?;
-        let t = commit.time();
-        let ts = t.seconds();
-        if let Some(since) = since_ts
-            && ts < since
-        {
-            continue;
-        }
-        if let Some(until) = until_ts
-            && ts > until
-        {
-            continue;
-        }
+    for commit_result in filtered_commits {
+        let commit = commit_result?;
+        let ts = commit.time().seconds();
         let key = bucket_start(ts, ctx.bucket);
         *buckets.entry(key).or_insert(0) += 1;
     }
